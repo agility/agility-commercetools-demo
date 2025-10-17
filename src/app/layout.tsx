@@ -4,6 +4,7 @@ import '@/styles/view-transitions.css'
 import type { Metadata } from 'next'
 import type React from 'react'
 import Script from 'next/script'
+import { CartProviderWrapper } from '@/components/cart/CartProviderWrapper'
 
 export const metadata: Metadata = {
   title: {
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body
         data-agility-guid={process.env.AGILITY_GUID}
         className="text-gray-950 antialiased overflow-x-hidden dark:bg-black dark:text-gray-200 transition-colors">
-        <main>
-          {children}
-        </main>
+        <CartProviderWrapper>
+          <main>
+            {children}
+          </main>
+        </CartProviderWrapper>
         {/* Web Studio SDK */}
         <Script src="https://unpkg.com/@agility/web-studio-sdk@latest/dist/index.js" />
       </body>

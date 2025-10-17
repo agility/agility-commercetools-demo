@@ -28,7 +28,10 @@ declare global {
 			OPENAI_API_KEY: string | undefined
 			OPENAI_API_MODEL: string | undefined
 
-
+			//Stripe Environment Variables
+			STRIPE_SECRET_KEY: string
+			STRIPE_WEBHOOK_SECRET: string
+			NEXT_PUBLIC_SITE_URL: string
 
 			// Node.js Environment Variables
 			NODE_ENV: 'development' | 'production' | 'test'

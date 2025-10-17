@@ -20,6 +20,8 @@ import { Carousel } from "./carousel/Carousel";
 import { ContactUs } from "./contact-us";
 import { PersonalizedLogoStrip } from "./personalized-logo-strip/PersonalizedLogoStrip";
 import { PersonalizedBackgroundHero } from "./PersonalizedBackgroundHero";
+import { ProductListing } from "./product-listing";
+import { ProductDetails } from "./product-details";
 
 
 // All of the Agility Page Module Components that are in use in this site need to be imported into this index file.
@@ -46,6 +48,8 @@ const allModules = [
 	, { name: "ContactUs", module: ContactUs }
 	, { name: "PersonalizedLogoStrip", module: PersonalizedLogoStrip }
 	, { name: "PersonalizedBackgroundHero", module: PersonalizedBackgroundHero }
+	, { name: "ProductListing", module: ProductListing }
+	, { name: "ProductDetails", module: ProductDetails }
 ];
 
 /**
