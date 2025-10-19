@@ -17,7 +17,7 @@ interface IRelatedProduct {
 }
 
 // Server component wrapper
-export const ProductDetails = async ({ module, languageCode }: UnloadedModuleProps) => {
+export const ProductDetails = async ({ module, languageCode, dynamicPageItem }: UnloadedModuleProps) => {
 	// Get ProductDetails configuration
 	const {
 		fields: config,
@@ -27,19 +27,7 @@ export const ProductDetails = async ({ module, languageCode }: UnloadedModulePro
 		languageCode,
 	})
 
-	// In a real implementation, you would get the product slug from URL params
-	// For now, we'll use a placeholder approach
-	// You would typically do: const { slug } = await params or similar
-	const productSlug = 'sample-product' // This should come from URL params
-
-	// Fetch the product - in real implementation, filter by slug
-	const productsResponse = await getContentList<IProduct>({
-		referenceName: 'products',
-		languageCode,
-		take: 1,
-	})
-
-	if (!productsResponse.items.length) {
+	if (!dynamicPageItem) {
 		return (
 			<div className="mx-auto max-w-7xl px-4 py-12 text-center" data-agility-component={contentID}>
 				<p className="text-gray-600 dark:text-gray-400">Product not found</p>
@@ -47,7 +35,7 @@ export const ProductDetails = async ({ module, languageCode }: UnloadedModulePro
 		)
 	}
 
-	const product = productsResponse.items[0] as ContentItem<IProduct>
+	const product = dynamicPageItem as ContentItem<IProduct>
 
 	// Fetch product variants
 	let variantsResponse = { items: [] as ContentItem<IVariant>[] }

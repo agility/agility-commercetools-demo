@@ -32,6 +32,9 @@ export default function CheckoutPage() {
       setIsLoading(true)
       setError(null)
 
+      // Get customer ID from session storage if available
+      const customerId = typeof window !== 'undefined' ? sessionStorage.getItem("customer_id") : null
+
       // Create checkout session
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -46,6 +49,7 @@ export default function CheckoutPage() {
             quantity: item.quantity,
             image: item.product.featuredImage?.url,
           })),
+          customerId: customerId || undefined,
         }),
       })
 

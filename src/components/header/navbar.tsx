@@ -16,6 +16,7 @@ import { MobileNav } from './mobile-nav'
 import { BannerLink } from './banner-link'
 import { DarkModeToggle } from './dark-mode-toggle'
 import { CartButton } from '@/components/cart/CartButton'
+import { AccountButton } from './AccountButton'
 import { useState } from 'react'
 import { localizeUrl, localizeUrlField } from '@/lib/i18n/localizeUrl'
 import { type Locale } from '@/lib/i18n/config'
@@ -64,11 +65,13 @@ export function Navbar({ header, locale }: Props) {
               <div className="flex items-center gap-4">
                 <DesktopNav links={header.links} locale={locale} />
                 <div className="hidden lg:flex items-center gap-2">
+                  <AccountButton />
                   <CartButton />
                   <DarkModeToggle />
                 </div>
               </div>
               <div className="flex items-center gap-2 lg:hidden">
+                <AccountButton />
                 <CartButton />
                 <DarkModeToggle />
                 <button

@@ -22,6 +22,10 @@ import { PersonalizedLogoStrip } from "./personalized-logo-strip/PersonalizedLog
 import { PersonalizedBackgroundHero } from "./PersonalizedBackgroundHero";
 import { ProductListing } from "./product-listing";
 import { ProductDetails } from "./product-details";
+import { Checkout } from "./checkout/Checkout.server";
+import { CheckoutSuccess } from "./checkout-success/CheckoutSuccess.server";
+import { CheckoutCancel } from "./checkout-cancel/CheckoutCancel.server";
+import { AccountOverview } from "./account-overview/AccountOverview.server";
 
 
 // All of the Agility Page Module Components that are in use in this site need to be imported into this index file.
@@ -50,6 +54,10 @@ const allModules = [
 	, { name: "PersonalizedBackgroundHero", module: PersonalizedBackgroundHero }
 	, { name: "ProductListing", module: ProductListing }
 	, { name: "ProductDetails", module: ProductDetails }
+	, { name: "Checkout", module: Checkout }
+	, { name: "CheckoutSuccess", module: CheckoutSuccess }
+	, { name: "CheckoutCancel", module: CheckoutCancel }
+	, { name: "AccountOverview", module: AccountOverview }
 ];
 
 /**

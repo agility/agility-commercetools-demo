@@ -33,6 +33,10 @@ declare global {
 			STRIPE_WEBHOOK_SECRET: string
 			NEXT_PUBLIC_SITE_URL: string
 
+			// Resend Email Environment Variables
+			RESEND_API_KEY: string
+			RESEND_FROM_EMAIL: string
+
 			// Node.js Environment Variables
 			NODE_ENV: 'development' | 'production' | 'test'
 		}

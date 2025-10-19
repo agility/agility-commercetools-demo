@@ -49,9 +49,9 @@ export function ProductDetailsClient({
 }: ProductDetailsClientProps) {
 	const { fields } = product
 	const { addItem, openCart } = useCart()
-
+	console.log("fields.featuredImage", fields.featuredImage)
 	// State management
-	const [selectedVariant, setSelectedVariant] = useState<ContentItem<IVariant> | null>(variants[0] || null)
+	const [selectedVariant, setSelectedVariant] = useState<ContentItem<IVariant> | null>(null)
 	const [selectedSize, setSelectedSize] = useState<string>('')
 	const [quantity, setQuantity] = useState(1)
 	const [selectedImage, setSelectedImage] = useState(fields.featuredImage)
@@ -59,11 +59,15 @@ export function ProductDetailsClient({
 
 	// Update selected image when variant changes
 	useEffect(() => {
-		if (selectedVariant?.fields.image?.url) {
-			setSelectedImage(selectedVariant.fields.image)
-		} else if (selectedVariant?.fields.variantImage?.url) {
-			setSelectedImage(selectedVariant.fields.variantImage)
+		if (selectedVariant) {
+			// Show variant image if available
+			if (selectedVariant.fields.image?.url) {
+				setSelectedImage(selectedVariant.fields.image)
+			} else if (selectedVariant.fields.variantImage?.url) {
+				setSelectedImage(selectedVariant.fields.variantImage)
+			}
 		} else {
+			// Show default featured image when no variant is selected
 			setSelectedImage(fields.featuredImage)
 		}
 	}, [selectedVariant, fields.featuredImage])
@@ -86,29 +90,34 @@ export function ProductDetailsClient({
 
 	// Handle add to cart
 	const handleAddToCart = () => {
-		if (!selectedVariant) {
-			alert('Please select a variant')
+		// Auto-select first variant if none selected
+		const variantToAdd = selectedVariant || variants[0]
+
+		if (!variantToAdd) {
+			alert('No variants available')
 			return
 		}
 		if (!selectedSize && availableSizes.length > 0) {
 			alert('Please select a size')
 			return
 		}
-		if (selectedVariant.fields.stockQuantity === 0) {
+		if (variantToAdd.fields.stockQuantity === 0) {
 			alert('This variant is out of stock')
 			return
 		}
 
 		// Add item to cart using the proper interface
-		addItem(fields, selectedVariant.fields, quantity)
+		addItem(fields, variantToAdd.fields, quantity)
 
 		// Open the cart drawer to show the added item
 		openCart()
 	}
 
-	const stockStatus = selectedVariant ? getStockStatus(selectedVariant.fields.stockQuantity) : null
-	const displayPrice = selectedVariant?.fields.price
-		? (typeof selectedVariant.fields.price === 'string' ? parseFloat(selectedVariant.fields.price) : selectedVariant.fields.price)
+	// Use selected variant or first variant for display info
+	const displayVariant = selectedVariant || variants[0]
+	const stockStatus = displayVariant ? getStockStatus(displayVariant.fields.stockQuantity) : null
+	const displayPrice = displayVariant?.fields.price
+		? (typeof displayVariant.fields.price === 'string' ? parseFloat(displayVariant.fields.price) : displayVariant.fields.price)
 		: (typeof fields.basePrice === 'string' ? parseFloat(fields.basePrice) : fields.basePrice)
 
 	// Get unique colors for variant selection
@@ -151,51 +160,57 @@ export function ProductDetailsClient({
 						</div>
 
 						{/* Thumbnails */}
-						{productImages.length > 0 && (
-							<div className="grid grid-cols-4 gap-4">
-								{fields.featuredImage?.url && (
+						<div className="grid grid-cols-4 gap-4">
+							{/* Always show featured image as first thumbnail */}
+							{fields.featuredImage?.url && (
+								<button
+									onClick={() => {
+										setSelectedImage(fields.featuredImage)
+										setSelectedVariant(null)
+									}}
+									className={clsx(
+										'aspect-square overflow-hidden rounded-lg border-2 transition-all',
+										selectedImage?.url === fields.featuredImage?.url && !selectedVariant
+											? 'border-blue-600 dark:border-blue-400'
+											: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+									)}
+								>
+									<AgilityPic
+										image={fields.featuredImage}
+										fallbackWidth={200}
+										className="h-full w-full object-cover"
+									/>
+								</button>
+							)}
+
+							{/* Show variant images */}
+							{uniqueColors.slice(0, fields.featuredImage?.url ? 3 : 4).map((variant) => {
+								const variantImage = variant.fields.image || variant.fields.variantImage
+								if (!variantImage?.url) return null
+
+								return (
 									<button
-										onClick={() => setSelectedImage(fields.featuredImage)}
+										key={variant.contentID}
+										onClick={() => {
+											setSelectedVariant(variant)
+											setSelectedSize('')
+										}}
 										className={clsx(
 											'aspect-square overflow-hidden rounded-lg border-2 transition-all',
-											selectedImage?.url === fields.featuredImage?.url
+											selectedVariant?.contentID === variant.contentID
 												? 'border-blue-600 dark:border-blue-400'
 												: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
 										)}
 									>
 										<AgilityPic
-											image={fields.featuredImage}
+											image={variantImage}
 											fallbackWidth={200}
 											className="h-full w-full object-cover"
 										/>
 									</button>
-								)}
-								{productImages.slice(0, 3).map((img) => (
-									<button
-										key={img.contentID}
-										onClick={() => setSelectedImage(img.fields.image)}
-										className={clsx(
-											'aspect-square overflow-hidden rounded-lg border-2 transition-all',
-											selectedImage?.url === img.fields.image?.url
-												? 'border-blue-600 dark:border-blue-400'
-												: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-										)}
-									>
-										{img.fields.image?.url ? (
-											<AgilityPic
-												image={img.fields.image}
-												fallbackWidth={200}
-												className="h-full w-full object-cover"
-											/>
-										) : (
-											<div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-												<span className="text-2xl">📦</span>
-											</div>
-										)}
-									</button>
-								))}
-							</div>
-						)}
+								)
+							})}
+						</div>
 					</motion.div>
 
 					{/* Product Info */}
@@ -321,10 +336,10 @@ export function ProductDetailsClient({
 							{/* Add to Cart Button */}
 							<button
 								onClick={handleAddToCart}
-								disabled={!selectedVariant || selectedVariant.fields.stockQuantity === 0}
+								disabled={!displayVariant || displayVariant.fields.stockQuantity === 0}
 								className={clsx(
 									'w-full flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold text-white transition-colors',
-									selectedVariant && selectedVariant.fields.stockQuantity > 0
+									displayVariant && displayVariant.fields.stockQuantity > 0
 										? 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
 										: 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
 								)}

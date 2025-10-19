@@ -19,6 +19,21 @@ function CheckoutSuccessContent() {
     // Get session ID from URL
     const id = searchParams.get("session_id")
     setSessionId(id)
+
+    // Fetch session details and store customer ID
+    if (id) {
+      fetch(`/api/checkout/session?session_id=${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.customerId && typeof window !== 'undefined') {
+            sessionStorage.setItem("customer_id", data.customerId)
+            console.log("[Checkout Success] Stored customer ID in session:", data.customerId)
+          }
+        })
+        .catch((err) => {
+          console.error("[Checkout Success] Error fetching session:", err)
+        })
+    }
   }, [clearCart, searchParams])
 
   return (
