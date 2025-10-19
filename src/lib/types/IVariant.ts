@@ -9,7 +9,7 @@ export interface IVariant {
   color?: string
   colorName?: string // Used in ProductDetails
   colorHEX: string
-  size: ContentItem<ISize> | { contentid: number } // Support both expanded and reference
+  size: ContentItem<ISize>  // Support both expanded and reference
   price: number
   variantImage?: ImageField
   image?: ImageField // Used in ProductDetails

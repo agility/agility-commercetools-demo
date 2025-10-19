@@ -18,15 +18,29 @@ export function CartDrawer() {
     setCheckoutError(null)
 
     try {
+
+      const customerId = typeof window !== 'undefined' ? sessionStorage.getItem("customer_id") : undefined
+
+      // Build request body based on authentication state
+      const requestBody: {
+        items: typeof cart.items
+        customerId?: string
+      } = {
+        items: cart.items
+      }
+
+      // If authenticated, use customer ID
+      if (customerId) {
+        requestBody.customerId = customerId
+      }
+
       // Create Stripe checkout session
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          items: cart.items,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()

@@ -50,45 +50,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid customer ID" }, { status: 400 })
       }
     }
-    // Priority 2: Guest checkout with email provided
-    else if (body.email) {
-      const emailLower = body.email.toLowerCase()
 
-      // Validate email format
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
-        return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
-      }
-
-      customerEmail = emailLower
-
-      // If user wants to create an account, check for existing customer or create new
-      if (body.createAccount) {
-        const existingCustomers = await stripe.customers.list({
-          email: emailLower,
-          limit: 1,
-        })
-
-        if (existingCustomers.data.length > 0) {
-          customerId = existingCustomers.data[0].id
-          console.log("Found existing customer for email:", customerId)
-        } else {
-          const customer = await stripe.customers.create({
-            email: emailLower,
-            metadata: {
-              source: "checkout",
-              accountRequested: "true",
-            },
-          })
-          customerId = customer.id
-          console.log("Created new customer:", customerId)
-        }
-      }
-    }
-    // Priority 3: Pure guest checkout (no email, no customer ID)
-    else {
-      isGuest = true
-      console.log("Starting guest checkout session")
-    }
 
     // Create line items for Stripe checkout
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = body.items.map((item) => ({
@@ -96,7 +58,7 @@ export async function POST(request: NextRequest) {
         currency: "usd",
         product_data: {
           name: item.product.title,
-          description: `${item.variant.color || ""} ${item.variant.size || ""}`.trim(),
+          description: `${item.variant.color || ""} ${item.variant.size.fields.title || ""}`.trim(),
           images: item.product.featuredImage?.url ? [item.product.featuredImage.url] : [],
           metadata: {
             productSku: item.product.sku,
@@ -115,7 +77,8 @@ export async function POST(request: NextRequest) {
       mode: "payment",
       success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/checkout/cancel`,
-      customer_creation: isGuest ? "always" : undefined, // Let Stripe collect email for guest
+      customer: customerId,
+      customer_creation: customerId ? undefined : "always", // Let Stripe collect email for guest
       metadata: {
         cartItemCount: body.items.length.toString(),
         createAccount: body.createAccount ? "true" : "false",

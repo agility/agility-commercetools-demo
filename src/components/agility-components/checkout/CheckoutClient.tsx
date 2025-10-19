@@ -24,28 +24,6 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
   const [createAccount, setCreateAccount] = useState(false)
   const [authenticatedCustomerId, setAuthenticatedCustomerId] = useState<string | null>(null)
 
-  // Check for authenticated customer on mount
-  useEffect(() => {
-    const customerId = sessionStorage.getItem("stripe_customer_id")
-    if (customerId) {
-      setAuthenticatedCustomerId(customerId)
-      // Pre-fetch customer email if logged in
-      fetchCustomerEmail(customerId)
-    }
-  }, [])
-
-  const fetchCustomerEmail = async (customerId: string) => {
-    try {
-      const response = await fetch(`/api/customer/details?customerId=${customerId}`)
-      const data = await response.json()
-      if (response.ok && data.customer?.email) {
-        setEmail(data.customer.email)
-        setCreateAccount(true) // Already have an account
-      }
-    } catch (err) {
-      console.error("Error fetching customer email:", err)
-    }
-  }
 
   // Redirect to products if cart is empty
   useEffect(() => {
@@ -64,31 +42,21 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
       setIsLoading(true)
       setError(null)
 
+      const customerId = typeof window !== 'undefined' ? sessionStorage.getItem("customer_id") : undefined
+
       // Build request body based on authentication state
       const requestBody: {
         items: typeof cart.items
         customerId?: string
-        email?: string
-        createAccount?: boolean
       } = {
-        items: cart.items,
+        items: cart.items
       }
 
       // If authenticated, use customer ID
-      if (authenticatedCustomerId) {
-        requestBody.customerId = authenticatedCustomerId
+      if (customerId) {
+        requestBody.customerId = customerId
       }
-      // If not authenticated but email provided, include email and account preference
-      else if (email) {
-        // Validate email format
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          setError("Please enter a valid email address")
-          setIsLoading(false)
-          return
-        }
-        requestBody.email = email
-        requestBody.createAccount = createAccount
-      }
+
       // Otherwise, proceed with pure guest checkout (Stripe will collect email)
 
       // Create checkout session
@@ -204,8 +172,8 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
                         </h3>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                           {(typeof item.variant.color === 'string' ? item.variant.color : '') ||
-                           (typeof item.variant.size === 'object' && 'fields' in item.variant.size ? (item.variant.size as any).fields?.name : '') ||
-                           "Default"}
+                            (typeof item.variant.size === 'object' && 'fields' in item.variant.size ? (item.variant.size as any).fields?.name : '') ||
+                            "Default"}
                         </p>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Quantity: {item.quantity}</p>
                       </div>
