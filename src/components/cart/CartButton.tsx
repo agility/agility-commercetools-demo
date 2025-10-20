@@ -21,8 +21,9 @@ export function CartButton() {
   return (
     <button
       onClick={openCart}
-      className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-      aria-label={`Shopping cart with ${cart.itemCount} items`}
+      className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white cursor-pointer"
+      title={`Shopping cart with ${cart.itemCount} items`}
+
     >
       <motion.div
         animate={shouldPulse ? { scale: [1, 1.2, 1] } : {}}

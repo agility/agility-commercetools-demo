@@ -6,17 +6,23 @@ import { ShoppingCartIcon } from "@heroicons/react/24/outline"
 import Link from "next/link"
 import { AgilityPic, type ContentItem } from "@agility/nextjs"
 import type { IProduct } from "@/lib/types/IProduct"
+import type { IVariant } from "@/lib/types/IVariant"
+import { useCart } from "@/lib/hooks/useCart"
+import { useState } from "react"
 
 interface ProductCardProps {
 	product: ContentItem<IProduct>
 	displayStyle: 'grid' | 'list'
 	ctaLabel: string
 	index: number
+	languageCode?: string
 }
 
-export const ProductCard = ({ product, displayStyle, ctaLabel, index }: ProductCardProps) => {
+export const ProductCard = ({ product, displayStyle, ctaLabel, index, languageCode = 'en-us' }: ProductCardProps) => {
+	const { addItem, openCart } = useCart()
+	const [isAdding, setIsAdding] = useState(false)
 	const {
-		fields: { title, description, basePrice, category, slug, featuredImage },
+		fields: { title, description, basePrice, category, slug, featuredImage, sku, variants },
 		contentID
 	} = product
 
@@ -25,6 +31,55 @@ export const ProductCard = ({ product, displayStyle, ctaLabel, index }: ProductC
 
 	// Animation delay for staggered effect
 	const delay = 0.05 + (index % 12) * 0.05
+
+	// Handle add to cart - fetch the default variant from API
+	const handleAddToCart = async (e: React.MouseEvent) => {
+		e.preventDefault()
+
+		if (isAdding) return
+		setIsAdding(true)
+
+		try {
+			let defaultVariant: IVariant
+
+			// If product has variants, fetch the first one from the API
+			if (variants?.referencename) {
+				const response = await fetch(`/api/products/variants?referenceName=${variants.referencename}&languageCode=${languageCode}`)
+
+				if (!response.ok) {
+					throw new Error('Failed to fetch variant')
+				}
+
+				const data = await response.json()
+
+				if (data.success && data.variant) {
+					defaultVariant = data.variant
+				} else {
+					throw new Error('No variant data returned')
+				}
+			} else {
+				// No variants - create a default variant with the base price
+				defaultVariant = {
+					variantSKU: `${sku}-default`,
+					color: 'default',
+					colorName: 'Default',
+					colorHEX: '#000000',
+					size: { contentID: 0, fields: { name: 'One Size' } } as any,
+					price: typeof basePrice === 'string' ? parseFloat(basePrice) : basePrice,
+					stockQuantity: 100, // Assume in stock for quick add
+				}
+			}
+
+			// Add to cart and open the cart drawer
+			addItem(product.fields, defaultVariant, 1)
+			openCart()
+		} catch (error) {
+			console.error('Error adding to cart:', error)
+			alert('Failed to add item to cart. Please try again.')
+		} finally {
+			setIsAdding(false)
+		}
+	}
 
 	return (
 		<motion.div
@@ -98,15 +153,12 @@ export const ProductCard = ({ product, displayStyle, ctaLabel, index }: ProductC
 							${basePrice || '0.00'}
 						</div>
 						<button
-							onClick={(e) => {
-								e.preventDefault()
-								// TODO: Add to cart functionality
-								console.log('Add to cart:', contentID)
-							}}
-							className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors shadow-sm hover:shadow-md"
+							onClick={handleAddToCart}
+							disabled={isAdding}
+							className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
 						>
 							<ShoppingCartIcon className="w-5 h-5" />
-							{ctaLabel || 'Add to Cart'}
+							{isAdding ? 'Adding...' : (ctaLabel || 'Add to Cart')}
 						</button>
 					</div>
 				</div>

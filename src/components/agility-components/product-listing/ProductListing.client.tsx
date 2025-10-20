@@ -23,6 +23,7 @@ interface ProductListingClientProps {
 	ctaLabel: string
 	products: ContentItem<IProduct>[]
 	contentID: number
+	languageCode: string
 }
 
 export const ProductListingClient = ({
@@ -34,7 +35,8 @@ export const ProductListingClient = ({
 	showSortOptions,
 	ctaLabel,
 	products,
-	contentID
+	contentID,
+	languageCode
 }: ProductListingClientProps) => {
 	const [displayStyle, setDisplayStyle] = useState<'grid' | 'list'>(initialDisplayStyle as 'grid' | 'list')
 	const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -208,6 +210,7 @@ export const ProductListingClient = ({
 						displayStyle={displayStyle}
 						ctaLabel={ctaLabel}
 						index={index}
+						languageCode={languageCode}
 					/>
 				))}
 			</div>

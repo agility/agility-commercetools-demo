@@ -8,7 +8,7 @@ export function AccountButton() {
 		<Link
 			href="/account"
 			className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-			aria-label="Account"
+			title="My Account"
 		>
 			<UserCircleIcon className="size-6" />
 		</Link>

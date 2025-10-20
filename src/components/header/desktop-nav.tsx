@@ -2,32 +2,17 @@
 
 import type { ILink } from "@/lib/cms-content/getHeaderContent"
 import Link from "next/link"
-import { PlusGridIcon, PlusGridItem } from "../plus-grid"
-import React, { useState } from 'react'
+import { PlusGridItem } from "../plus-grid"
+import React from 'react'
 import { localizeUrlField } from '@/lib/i18n/localizeUrl'
 import { type Locale } from '@/lib/i18n/config'
 import {
-	Dialog,
-	DialogPanel,
-	Disclosure,
-	DisclosureButton,
-	DisclosurePanel,
 	Popover,
 	PopoverButton,
 	PopoverGroup,
 	PopoverPanel,
 } from '@headlessui/react'
-import {
-	ArrowPathIcon,
-	Bars3Icon,
-	ChartPieIcon,
-	CursorArrowRaysIcon,
-	FingerPrintIcon,
-	SquaresPlusIcon,
-	XMarkIcon,
-} from '@heroicons/react/24/outline'
-import { ChevronDownIcon, PhoneIcon, PlayCircleIcon } from '@heroicons/react/20/solid'
-import { DarkModeToggle } from "./dark-mode-toggle"
+import { ChevronDownIcon } from '@heroicons/react/20/solid'
 
 
 interface Props {

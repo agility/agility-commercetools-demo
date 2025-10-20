@@ -33,13 +33,14 @@ export const ProductListing = async ({ module, languageCode }: UnloadedModulePro
 		<ProductListingClient
 			heading={heading}
 			description={description}
-			displayStyle={displayStyle || 'grid'}
-			itemsPerRow={itemsPerRow || '3'}
-			showFilters={showFilters === 'true'}
-			showSortOptions={showSortOptions === 'true'}
+			displayStyle={displayStyle}
+			itemsPerRow={itemsPerRow}
+			showFilters={showFilters === "true"}
+			showSortOptions={showSortOptions === "true"}
 			ctaLabel={ctaLabel}
 			products={productsList.items}
 			contentID={contentID}
+			languageCode={languageCode}
 		/>
 	)
 }
