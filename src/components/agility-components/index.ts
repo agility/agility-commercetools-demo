@@ -26,6 +26,7 @@ import { Checkout } from "./checkout/Checkout.server";
 import { CheckoutSuccess } from "./checkout-success/CheckoutSuccess.server";
 import { CheckoutCancel } from "./checkout-cancel/CheckoutCancel.server";
 import { AccountOverview } from "./account-overview/AccountOverview.server";
+import { FeaturedProducts } from "./featured-products/FeaturedProducts.server";
 
 
 // All of the Agility Page Module Components that are in use in this site need to be imported into this index file.
@@ -58,6 +59,7 @@ const allModules = [
 	, { name: "CheckoutSuccess", module: CheckoutSuccess }
 	, { name: "CheckoutCancel", module: CheckoutCancel }
 	, { name: "AccountOverview", module: AccountOverview }
+	, { name: "FeaturedProducts", module: FeaturedProducts }
 ];
 
 /**

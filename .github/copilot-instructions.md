@@ -66,6 +66,40 @@ const nestedItems = await getContentList<NestedType>({
 })
 ```
 
+### Linked Content Fields (Search List Box Pattern)
+
+**CRITICAL**: When using a **search list box linked content field** in Agility CMS, the field automatically contains an array of `ContentItem<T>[]` objects. You do NOT need to fetch the items separately using `getContentList()`.
+
+```typescript
+// Interface for component with linked content field
+interface IFeaturedProducts {
+  heading: string
+  products: ContentItem<IProduct>[]  // Already populated by CMS
+}
+
+// Usage - NO additional fetch needed
+export const FeaturedProducts = async ({ module, languageCode }: UnloadedModuleProps) => {
+  const { fields: { heading, products } } = await getContentItem<IFeaturedProducts>({
+    contentID: module.contentid,
+    languageCode,
+  })
+
+  // products is already an array of ContentItem<IProduct>
+  return (
+    <div>
+      {products.map(product => (
+        <div key={product.contentID}>{product.fields.title}</div>
+      ))}
+    </div>
+  )
+}
+```
+
+**Key Differences**:
+
+- **Content Reference Field** (single item) → Use `referencename` property → Fetch with `getContentList()`
+- **Linked Content Field** (search list box) → Already contains `ContentItem<T>[]` → Use directly
+
 ### Caching Strategy
 
 - **Automatic**: All `getContentItem()`/`getContentList()` calls include Next.js cache tags

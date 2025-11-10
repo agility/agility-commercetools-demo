@@ -3,6 +3,10 @@
 		"Agility CMS": {
 			"url": "https://mcp.agilitycms.com/api/mcp",
 			"type": "http"
+		},
+		"Figma": {
+			"url": "https://mcp.figma.com/mcp",
+			"type": "http"
 		}
 	},
 	"inputs": []
