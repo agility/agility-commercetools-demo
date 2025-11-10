@@ -6,42 +6,104 @@ This is an Agility CMS-powered Next.js demo site built with React 19, TypeScript
 
 ## Key Technologies
 
-- **Framework**: Next.js 15.3.5 with App Router and TypeScript
-- **Frontend**: React 19.1.0 with hooks for state management
+- **Framework**: Next.js 15.5.3 with App Router and TypeScript
+- **Frontend**: React 19.1.1 with hooks for state management
 - **Styling**: Tailwind CSS v4 (CSS-file based, no config file)
 - **CMS**: Agility CMS (@agility/nextjs 15.0.7)
+- **Payments**: Stripe (stripe 19.1.0, @stripe/stripe-js 8.1.0)
+- **E-commerce**: Full shopping cart, checkout, and product management
+- **AI Features**: Azure/OpenAI integration with Algolia search
+- **Analytics**: PostHog integration with feature flags
 - **Animations**: Motion (Framer Motion alternative) 12.23.0
-- **Icons**: Heroicons v2, React Icons
+- **Icons**: Heroicons v2, React Icons, Lucide React, Tabler Icons
+- **UI Components**: Radix UI primitives, Headless UI
 - **Development**: Turbopack dev server, ESLint, Prettier
+- **View Transitions**: Next.js experimental view transitions API
 
 ## Project Structure
 
 ```
 src/
 ├── app/                    # Next.js App Router pages
+│   ├── [locale]/          # Internationalized routes
+│   │   ├── [...slug]/     # Dynamic Agility CMS pages
+│   │   ├── layout.tsx     # Locale-specific layout
+│   │   └── page.tsx       # Home page
+│   ├── api/               # API routes
+│   │   ├── ai/            # AI search endpoints
+│   │   ├── auth/          # Authentication (magic links)
+│   │   ├── checkout/      # Stripe checkout sessions
+│   │   ├── contact/       # Contact form submissions
+│   │   ├── customer/      # Customer data endpoints
+│   │   ├── products/      # Product API endpoints
+│   │   ├── preview/       # Agility preview mode
+│   │   ├── revalidate/   # ISR revalidation
+│   │   ├── search/        # Search endpoints
+│   │   └── webhooks/      # Stripe webhooks
+│   └── layout.tsx         # Root layout
 ├── components/             # Reusable UI components
-│   ├── agility-components/ # CMS-connected components (RichTextArea, BentoSection, etc.)
+│   ├── agility-components/ # CMS-connected components
+│   │   ├── product-listing/ # Product catalog
+│   │   ├── product-details/ # Product detail pages
+│   │   ├── checkout/       # Checkout flow
+│   │   ├── featured-products/ # Featured products
+│   │   └── [many more]     # See index.ts for full list
 │   ├── agility-pages/      # Page-level components
-│   ├── header/            # Header navigation components
-│   └── footer/            # Footer components
+│   ├── ai-agent/          # AI chat components
+│   ├── ai-search/         # AI search UI
+│   ├── cart/              # Shopping cart components
+│   ├── header/            # Header navigation
+│   ├── footer/            # Footer components
+│   └── ui/                # shadcn/ui components
 ├── lib/                   # Utilities and CMS helpers
-│   ├── cms/               # Agility CMS API functions and SDK
+│   ├── ai/                # AI provider configuration
+│   ├── auth/              # Authentication utilities
+│   ├── cart/              # Cart context and hooks
+│   ├── cms/               # Agility CMS API functions
 │   ├── cms-content/       # Content processing utilities
-│   └── types/             # TypeScript definitions
+│   ├── hooks/             # Custom React hooks
+│   ├── i18n/              # Internationalization
+│   ├── posthog/           # PostHog analytics
+│   ├── stripe/            # Stripe client utilities
+│   ├── types/             # TypeScript definitions
+│   ├── utils/             # Utility functions
+│   └── env.ts             # Environment variable validation
+├── middleware.ts          # Next.js middleware (routing, preview, redirects)
 └── public/                # Static assets organized by category
 ```
 
 ## Development Commands
 
 - `npm run dev` - Start development server with Turbopack
+- `npm run prebuild` - **CRITICAL**: Rebuild redirect cache (must run before build)
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 
+**Important**: Always run `npm run prebuild` before building for production. This rebuilds the redirect cache from bloom filters stored in `data/redirections-bloom-filter.json`.
+
 ## Component Conventions
 
+### Server vs Client Components
+
+- **Server Components** (default): Use for data fetching, CMS content, SEO
+  - No `"use client"` directive
+  - Can use async/await directly
+  - Cannot use hooks, browser APIs, or event handlers
+  - Example: `FeaturedProducts.server.tsx`, `Checkout.server.tsx`
+
+- **Client Components**: Use for interactivity, state, browser APIs
+  - Must include `"use client"` directive at top
+  - Can use hooks, event handlers, localStorage
+  - Example: `FeaturedProductsClient.tsx`, `CartDrawer.tsx`
+
+### Naming Patterns
+
+- Server components: `ComponentName.server.tsx` or just `ComponentName.tsx`
+- Client components: `ComponentName.client.tsx` or `ComponentNameClient.tsx`
+- Agility components: Register in `src/components/agility-components/index.ts`
+- Use PascalCase for all components
 - Use TypeScript for all components
-- Follow existing naming patterns (PascalCase for components)
 - Utilize Tailwind CSS for styling
 - Components are functional with modern React patterns
 - Agility CMS components follow their SDK patterns
@@ -65,14 +127,36 @@ The project uses Agility CMS as a headless CMS:
 
 Key TypeScript interfaces are defined in `src/lib/types/`:
 
+### Content Types
 - `IPost.ts` - Blog post structure
 - `IAuthor.ts` - Author information
 - `ICategory.ts` - Content categories
 - `ITag.ts` - Content tags
-- `ICustomerProfile.ts` - Customer data
+- `SitemapNode.ts` - Site navigation structure
+
+### E-commerce Types
+- `IProduct.ts` - Product structure
+- `IProductDetails.ts` - Detailed product information
+- `IProductListing.ts` - Product listing configuration
+- `IProductImage.ts` - Product image structure
+- `IVariant.ts` - Product variant (color, size)
+- `ISize.ts` - Size information
+- `IMeasurements.ts` - Product measurements
+- `ICart.ts` - Shopping cart structure
+- `ICheckout.ts` - Checkout data
+- `IPricingTier.ts` - Pricing tier structure
+
+### Customer & Personalization
+- `ICustomer.ts` - Customer data
+- `ICustomerProfile.ts` - Customer profile
 - `IAudience.ts` - Audience targeting
 - `IRegion.ts` - Regional content
-- `SitemapNode.ts` - Site navigation structure
+- `IPersonalizedBackgroundHero.ts` - Personalized hero content
+
+### System Types
+- `ISettings.ts` - Site settings
+- `IContentListResponse.ts` - Content list response wrapper
+- `env.d.ts` - Environment variable types
 
 ## Agility CMS Integration Guidelines
 
@@ -86,19 +170,39 @@ Key TypeScript interfaces are defined in `src/lib/types/`:
 
 ### Available Agility Components
 
+All components must be registered in `src/components/agility-components/index.ts`:
+
+**Content Components:**
 - **RichTextArea** - Renders rich text content from CMS
 - **BackgroundHero** - Hero section with background image
-- **BentoSection** - Animated grid of cards with nested content (example of nested data fetching)
+- **PersonalizedBackgroundHero** - Audience/region-specific hero
+- **BentoSection** - Animated grid of cards with nested content
 - **LogoStrip** - Display strip of logos
+- **PersonalizedLogoStrip** - Audience/region-specific logos
 - **Header/Hero** - Site header and hero components
-- **ContactUs** - Contact form components
-- **TeamListing** - Team member display
+- **ABTestHero** - A/B testing hero component
+- **Carousel** - Image/content carousel
+
+**E-commerce Components:**
+- **ProductListing** - Product catalog with filtering
+- **ProductDetails** - Product detail pages with variants
+- **FeaturedProducts** - Featured products showcase
+- **Checkout** - Checkout page component
+- **CheckoutSuccess** - Order success page
+- **CheckoutCancel** - Order cancellation page
+- **AccountOverview** - Customer account dashboard
+
+**Content Display:**
+- **PostListing/PostDetails** - Blog post components
 - **BlogHeader** - Blog-specific header
+- **TeamListing** - Team member display
 - **CompanyStats** - Statistics display component
 - **Testimonials** - Customer testimonial components
-- **Pricing** - Pricing table components
-- **Carousel** - Image/content carousel
-- **PostListing/PostDetails** - Blog post components
+- **Testimonial** - Single testimonial component
+- **PricingCards** - Pricing card display
+- **PricingTable** - Pricing table component
+- **FrequentlyAskedQuestions** - FAQ component
+- **ContactUs** - Contact form components
 
 ### TypeScript Patterns
 
@@ -217,6 +321,192 @@ interface IFeaturedProducts {
 - Fade animations from specific directions
 - Calculate delays based on item index for visual interest
 
+## E-Commerce Features
+
+### Shopping Cart
+- **Context**: `src/lib/cart/CartContext.tsx` - React Context for cart state
+- **Hook**: `useCart()` - Access cart functionality
+- **Storage**: Persisted to localStorage with key `agility-commerce-cart`
+- **Components**: `CartButton`, `CartDrawer`, `CartLineItem` in `src/components/cart/`
+- **Features**: Add/remove items, quantity updates, persistent state
+
+### Product Management
+- **API Routes**: `/api/products` (list), `/api/products/[slug]` (detail)
+- **Types**: `IProduct`, `IVariant`, `ISize`, `IMeasurements`
+- **Features**: Variants (color/size), stock management, product images, related products
+- **Components**: `ProductListing`, `ProductDetails`, `ProductCard`
+
+### Checkout Flow
+- **Stripe Integration**: Uses Stripe Checkout (hosted)
+- **API Route**: `/api/checkout` - Creates checkout sessions
+- **Webhooks**: `/api/webhooks/stripe` - Handles payment confirmations
+- **Flows**: Authenticated, guest with email, pure guest
+- **Pages**: `/checkout`, `/checkout/success`, `/checkout/cancel`
+
+### Customer Management
+- **Authentication**: Magic link authentication (`/api/auth/send-magic-link`)
+- **Customer Portal**: `/api/customer-portal` - Stripe customer portal
+- **API Routes**: `/api/customer/details`, `/api/customer/orders`
+- **Session Management**: Cookie-based session storage
+
+## Internationalization (i18n)
+
+- **Locales**: Configured via `AGILITY_LOCALES` env var (comma-separated)
+- **Default Locale**: First locale in the list
+- **Routing**: `/[locale]/[...slug]` pattern
+- **Middleware**: Handles locale routing and `?lang=` query params
+- **Config**: `src/lib/i18n/config.ts`
+- **URL Localization**: `src/lib/i18n/localizeUrl.ts`
+
+## View Transitions
+
+- **Provider**: `ViewTransitionProvider` wraps the app
+- **Hook**: `useViewTransition()` for programmatic transitions
+- **Feature**: Next.js experimental view transitions API
+- **CSS**: `src/styles/view-transitions.css`
+- **Link Component**: `ViewTransitionLink` for enhanced navigation
+- **Config**: Enabled in `next.config.mjs` with `experimental.viewTransition: true`
+
+## AI Features
+
+### AI Search
+- **Endpoint**: `/api/ai/search` - Streaming AI search with tool calling
+- **Providers**: Azure OpenAI or OpenAI (configured via env vars)
+- **Search Tool**: Algolia integration via `createSearchTool()`
+- **Config**: Managed in Agility CMS via `getAISearchConfig()`
+- **UI**: `FloatingAISearch` component
+- **Hook**: `useAISearch()` for search functionality
+
+### AI Agent
+- **Components**: `AIAgentChat`, `AIAgentModal`, `AIAgentMessage`
+- **Contact Capture**: `ContactCaptureForm` for lead generation
+- **Tools**: Search tool, contact capture tool
+
+## Analytics & Tracking
+
+### PostHog
+- **Client**: `src/lib/posthog/get-client.ts` - Server-side PostHog client
+- **Tracking**: `src/lib/posthog/track-event.ts`
+- **Feature Flags**: `src/lib/posthog/get-feature-flag-variant.ts`
+- **User ID**: `src/lib/posthog/get-user-id.ts`
+- **Config**: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`
+
+### Google Analytics
+- **Integration**: `@next/third-parties/google` - `GoogleAnalytics` component
+- **Config**: Stored in Agility CMS settings (`googleAnalyticsID`)
+
+## Audience & Region Personalization
+
+- **Types**: `IAudience`, `IRegion` with contentID extensions
+- **Utils**: `src/lib/utils/audienceRegionUtils.ts`
+- **Hooks**: `useAudienceRegionParams()` - Get audience/region from URL params
+- **Functions**: `getAudienceContentID()`, `getRegionContentID()`
+- **Components**: `PersonalizedBackgroundHero`, `PersonalizedLogoStrip`
+- **Preview Bar**: Shows current audience/region selection
+
+## API Routes
+
+### Structure
+All API routes are in `src/app/api/` following Next.js 15 App Router patterns:
+- Route handlers: `route.ts` files with `GET`, `POST`, etc. exports
+- Dynamic routes: `[param]/route.ts`
+- Max duration: Use `export const maxDuration = 30` for long-running requests
+
+### Key Endpoints
+- `/api/ai/search` - AI-powered search (streaming)
+- `/api/ai/agent` - AI agent chat
+- `/api/auth/*` - Magic link authentication
+- `/api/checkout` - Create Stripe checkout session
+- `/api/checkout/session` - Get checkout session details
+- `/api/products` - Product listing with filters
+- `/api/products/[slug]` - Single product details
+- `/api/products/variants` - Product variants
+- `/api/customer/*` - Customer data endpoints
+- `/api/customer-portal` - Stripe customer portal link
+- `/api/preview` - Agility preview mode entry
+- `/api/preview/exit` - Exit preview mode
+- `/api/revalidate` - ISR revalidation endpoint
+- `/api/search` - Search endpoint
+- `/api/webhooks/stripe` - Stripe webhook handler
+
+## Custom Hooks
+
+Located in `src/lib/hooks/`:
+
+- `useCart()` - Shopping cart functionality
+- `useAISearch()` - AI search integration
+- `useSearch()` - General search functionality
+- `useAudienceRegionParams()` - Get audience/region from URL
+- `useViewTransition()` - View transition utilities
+
+## Utilities
+
+### CMS Utilities (`src/lib/cms/`)
+- `getAgilitySDK()` - Get Agility SDK instance
+- `getAgilityContext()` - Get preview/development context
+- `getAgilityPage()` - Get page data from Agility
+- `getContentItem()` - Fetch single content item
+- `getContentList()` - Fetch content list
+- `getSitemapFlat()` - Get flat sitemap
+- `getSitemapNested()` - Get nested sitemap
+- `getRedirections()` - Get redirect rules
+
+### Content Utilities (`src/lib/cms-content/`)
+- `getHeaderContent()` - Header navigation
+- `getFooterContent()` - Footer content
+- `getSettings()` - Site settings
+- `getPageMetaData()` - Page SEO metadata
+- `getPostListing()` - Blog post listing
+- `getAudienceListing()` - Audience list
+- `getRegionListing()` - Region list
+- `getAISearchConfig()` - AI search configuration
+- `checkRedirect()` - Check for redirect rules
+- `rebuildRedirectCache()` - Rebuild redirect cache (prebuild)
+
+### General Utilities (`src/lib/utils/`)
+- `cn()` - Class name utility (clsx + tailwind-merge)
+- `formatPrice()` - Currency formatting
+- `audienceRegionUtils.ts` - Audience/region helpers
+- `currency.ts` - Currency utilities
+- `inventory.ts` - Inventory management
+- `pageZoneUtils.ts` - Page zone utilities
+
+## Environment Variables
+
+**Required** (validated in `src/lib/env.ts`):
+- `AGILITY_GUID` - Agility instance GUID
+- `AGILITY_API_FETCH_KEY` - Fetch API key
+- `AGILITY_API_PREVIEW_KEY` - Preview API key
+- `AGILITY_SECURITY_KEY` - Security key
+- `AGILITY_LOCALES` - Comma-separated locales (e.g., "en-us,fr-ca")
+- `AGILITY_SITEMAP` - Sitemap reference name
+- `AGILITY_FETCH_CACHE_DURATION` - Cache duration
+- `AGILITY_PATH_REVALIDATE_DURATION` - Revalidation duration
+- `NEXT_PUBLIC_POSTHOG_KEY` - PostHog project key
+- `NEXT_PUBLIC_POSTHOG_HOST` - PostHog host
+- `NODE_ENV` - Environment (development/production/test)
+
+**Optional** (for e-commerce):
+- Stripe keys (if using e-commerce features)
+- AI provider keys (if using AI search)
+- Algolia keys (if using search)
+
+**Access Pattern**: Always use `env.get('VAR_NAME')` from `src/lib/env.ts` instead of `process.env` for type safety and validation.
+
+## Middleware
+
+Located at `src/middleware.ts`:
+
+**Functions:**
+1. **Preview Mode**: Handles Agility preview requests (`?agilitypreviewkey=`)
+2. **Exit Preview**: Handles preview exit (`?AgilityPreview=0`)
+3. **Dynamic Redirects**: Routes by ContentID (`?ContentID=`)
+4. **Redirect Cache**: Checks redirect rules from cache
+5. **Locale Routing**: Handles `?lang=` query params and locale prefixes
+6. **Search Params**: Encodes search params in path for static routing
+
+**Matcher**: Excludes `/api`, `/assets`, `/_next/static`, `/_next/image`, `/favicon.ico`
+
 ## Development Notes for Claude Code
 
 - Always check existing component patterns before creating new ones
@@ -225,4 +515,13 @@ interface IFeaturedProducts {
 - Reference Tailwind CSS v4 documentation at https://tailwindcss.com/docs
 - Maintain accessibility standards with Heroicons and semantic HTML
 - Test responsiveness with Tailwind's mobile-first approach
+- **Server Components First**: Default to server components, use client components only when needed
+- **Register Components**: Always register new Agility components in `src/components/agility-components/index.ts`
+- **Environment Variables**: Use `env.get()` from `src/lib/env.ts` for type safety
+- **Pre-build Step**: Remember to run `npm run prebuild` before production builds
+- **View Transitions**: Use `ViewTransitionLink` or `useViewTransition()` for enhanced navigation
+- **Cart State**: Use `useCart()` hook, never access CartContext directly
+- **Type Safety**: Always define TypeScript interfaces for CMS content models
+- **Error Handling**: Implement proper error boundaries and fallbacks
+- **Performance**: Use Suspense boundaries for async components
 
