@@ -30,6 +30,11 @@ type OptionalEnvVars = {
 	CTP_API_URL?: string
 	CTP_AUTH_URL?: string
 	CTP_SCOPES?: string
+	// commercetools Checkout
+	CTP_CHECKOUT_REGION?: string // e.g., "europe-west1.gcp" or "us-east-2.aws"
+	CTP_CHECKOUT_APPLICATION_KEY?: string // Application key configured in commercetools
+	CTP_CHECKOUT_SESSION_CLIENT_ID?: string // API client with manage_sessions scope
+	CTP_CHECKOUT_SESSION_CLIENT_SECRET?: string // API client secret with manage_sessions scope
 }
 
 type EnvVars = RequiredEnvVars & Partial<OptionalEnvVars>

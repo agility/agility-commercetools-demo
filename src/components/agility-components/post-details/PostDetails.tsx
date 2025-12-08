@@ -1,15 +1,17 @@
 import React from "react"
-import { AgilityPic, type UnloadedModuleProps, renderHTML } from "@agility/nextjs"
+import { AgilityPic, type UnloadedModuleProps, renderHTML, type ImageField, type ContentItem } from "@agility/nextjs"
 import { DateTime } from "luxon"
 import type { IPost } from "@/lib/types/IPost"
+import type { IProduct } from "@/lib/types/IProduct"
 import { ChevronLeftIcon } from "@heroicons/react/16/solid"
 import dayjs from "dayjs"
 import Link from "next/link"
 import { Container } from "../../container"
 import { Subheading, Heading } from "../../text"
 import { Button } from "../../button"
-import { PostImage } from "./PostImage"
+import { PostImageWithProduct } from "./PostImageWithProduct"
 import { localizeUrl } from "@/lib/i18n/localizeUrl"
+import { fetchCommercetoolsProductBySlug } from "@/lib/commercetools/products"
 
 const PostDetails = async ({ dynamicPageItem, languageCode }: UnloadedModuleProps) => {
 	if (!dynamicPageItem) {
@@ -29,6 +31,53 @@ const PostDetails = async ({ dynamicPageItem, languageCode }: UnloadedModuleProp
 
 	// content id
 	const contentID = dynamicPageItem.contentID
+
+	// Extract product image from embedded featuredProduct field
+	let productImage: ImageField | null = null
+	if (post.featuredProduct) {
+		try {
+			// Handle embedded product format (same as FeaturedProducts component)
+			// Could be: JSON string, ContentItem<IProduct>, or ContentItem<IProduct>[]
+			let product: IProduct | null = null
+
+			if (typeof post.featuredProduct === 'string') {
+				// Parse JSON string format like: '{"id":"...","path":"ben-pillow-cover","sku":"...","name":"..."}'
+				try {
+					const parsed = JSON.parse(post.featuredProduct)
+					// If it's a JSON object with product data, extract the slug and fetch
+					if (parsed.path || parsed.slug) {
+						const localeCode = languageCode.split('-')[0] || 'en'
+						product = await fetchCommercetoolsProductBySlug(
+							parsed.path || parsed.slug,
+							{ locale: localeCode }
+						)
+					}
+				} catch (jsonError) {
+					// Not JSON, treat as plain slug string
+					const localeCode = languageCode.split('-')[0] || 'en'
+					product = await fetchCommercetoolsProductBySlug(
+						post.featuredProduct.toLowerCase().replace(/\s+/g, '-'),
+						{ locale: localeCode }
+					)
+				}
+			} else if (post.featuredProduct && typeof post.featuredProduct === 'object') {
+				// Handle ContentItem<IProduct> or ContentItem<IProduct>[]
+				if (Array.isArray(post.featuredProduct) && post.featuredProduct.length > 0) {
+					// Take first product from array
+					product = post.featuredProduct[0].fields as IProduct
+				} else if ('fields' in post.featuredProduct) {
+					// Single ContentItem<IProduct>
+					product = post.featuredProduct.fields as IProduct
+				}
+			}
+
+			if (product?.featuredImage) {
+				productImage = product.featuredImage
+			}
+		} catch (error) {
+			console.error(`Error extracting product for post ${contentID}:`, error)
+		}
+	}
 
 	return (
 		<Container data-agility-component={contentID}>
@@ -77,11 +126,11 @@ const PostDetails = async ({ dynamicPageItem, languageCode }: UnloadedModuleProp
 				</div>
 				<div className="text-gray-700 dark:text-gray-300">
 					<div className="max-w-2xl xl:mx-auto">
-						{post.image && (
-							<PostImage
-								image={post.image}
+						{(post.image || productImage) && (
+							<PostImageWithProduct
+								postImage={post.image || null}
+								productImage={productImage}
 								contentID={contentID}
-								data-agility-field="image"
 							/>
 						)}
 

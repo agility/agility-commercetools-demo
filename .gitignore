@@ -31,6 +31,10 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# MCP config files (may contain credentials)
+.mcp/commercetools-config.json
+.mcp/*.json
+
 # vercel
 .vercel
 

@@ -11,11 +11,6 @@ export async function createCart(
   country?: string
 ): Promise<Cart> {
   const apiRoot = getCommercetoolsApiRoot()
-  const projectKey = process.env.NEXT_PUBLIC_CT_PROJECT_KEY
-
-  if (!projectKey) {
-    throw new Error('NEXT_PUBLIC_CT_PROJECT_KEY is required')
-  }
 
   const cartDraft: CartDraft = {
     currency,

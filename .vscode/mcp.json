@@ -7,6 +7,15 @@
 		"Figma": {
 			"url": "https://mcp.figma.com/mcp",
 			"type": "http"
+		},
+		"commercetools Commerce MCP": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@commercetools/commerce-mcp@latest",
+				"--tools=all",
+				"--authType=client_credentials"
+			]
 		}
 	},
 	"inputs": []

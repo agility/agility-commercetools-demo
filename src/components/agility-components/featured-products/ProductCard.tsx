@@ -1,15 +1,14 @@
-import type { ContentItem } from "@agility/nextjs"
 import type { IProduct } from "@/lib/types/IProduct"
-import { AgilityPic } from "@agility/nextjs"
 import Link from "next/link"
+import Image from "next/image"
+import { getImageDimensions } from "@/lib/utils/imageOptimization"
 
 interface ProductCardProps {
-  product: ContentItem<IProduct>
+  product: IProduct & { commercetoolsId?: string }
 }
 
 export const ProductCard = ({ product }: ProductCardProps) => {
-  const { fields, contentID } = product
-  const { title, slug, featuredImage, basePrice } = fields
+  const { title, slug, featuredImage, basePrice } = product
 
   // Format price for display
   const formattedPrice = basePrice
@@ -17,20 +16,19 @@ export const ProductCard = ({ product }: ProductCardProps) => {
     : "Price not available"
 
   return (
-    <div
-      className="group relative h-96 rounded-lg bg-white shadow-xl sm:aspect-4/5 sm:h-auto"
-      data-agility-content={contentID}
-    >
+    <div className="group relative h-96 rounded-lg bg-white shadow-xl sm:aspect-4/5 sm:h-auto">
       <Link href={`/products/${slug}`} className="absolute inset-0">
         <div aria-hidden="true" className="absolute inset-0 overflow-hidden rounded-lg">
           <div className="absolute inset-0 overflow-hidden group-hover:opacity-75">
             {featuredImage && (
-              <AgilityPic
-                image={featuredImage}
-                fallbackWidth={600}
+              <Image
+                src={featuredImage.url}
+                alt={featuredImage.label || title}
+                width={featuredImage.width || getImageDimensions('featured-card').width}
+                height={featuredImage.height || getImageDimensions('featured-card').height}
                 className="size-full object-cover"
-                data-agility-field="featuredImage"
-                priority={false}
+                sizes="(max-width: 639px) 400px, 600px"
+                quality={85}
               />
             )}
           </div>
@@ -41,7 +39,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
             <p aria-hidden="true" className="text-sm text-white">
               {formattedPrice}
             </p>
-            <h3 className="mt-1 font-semibold text-white" data-agility-field="title">
+            <h3 className="mt-1 font-semibold text-white">
               <span className="absolute inset-0" />
               {title}
             </h3>

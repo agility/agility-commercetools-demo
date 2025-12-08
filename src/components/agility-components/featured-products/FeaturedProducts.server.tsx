@@ -1,21 +1,60 @@
 import { getContentItem } from "@/lib/cms/getContentItem"
 import type { UnloadedModuleProps } from "@agility/nextjs"
 import type { IFeaturedProducts } from "@/lib/types/IFeaturedProducts"
+import type { IProduct } from "@/lib/types/IProduct"
+import { fetchCommercetoolsProductBySlug } from "@/lib/commercetools/products"
 import { ProductCard } from "./ProductCard"
 import Link from "next/link"
 
 export const FeaturedProducts = async ({ module, languageCode }: UnloadedModuleProps) => {
   const {
-    fields: { heading, ctaText, ctaLink, featuredProducts, backgroundImage },
+    fields: { heading, ctaText, ctaLink, product1, product2, product3, backgroundImage },
     contentID,
   } = await getContentItem<IFeaturedProducts>({
     contentID: module.contentid,
     languageCode,
   })
 
-  // IMPORTANT: featuredProducts is already populated with full ContentItem<IProduct>[] objects
-  // No need to fetch separately - the SDK does this automatically for search list box fields
-  const products = featuredProducts || []
+  // Map language code to commercetools locale (e.g., "en-us" -> "en")
+  const locale = languageCode.split('-')[0] || 'en'
+
+  // Parse JSON strings from the product fields and extract slugs
+  // The fields contain JSON like: '{"id":"...","path":"ben-pillow-cover","sku":"...","name":"..."}'
+  const parseProductField = (fieldValue: string | undefined): string | null => {
+    if (!fieldValue) return null
+    try {
+      const parsed = JSON.parse(fieldValue)
+      // Extract the slug from the "path" field in the JSON
+      return parsed.path || parsed.slug || null
+    } catch (error) {
+      // If it's not JSON, treat it as a plain slug string
+      console.warn(`[FeaturedProducts] Field value is not JSON, treating as slug: ${fieldValue}`)
+      return fieldValue
+    }
+  }
+
+  // Get product slugs from the component fields (parsing JSON if needed)
+  const productSlugs = [product1, product2, product3]
+    .map(parseProductField)
+    .filter((slug): slug is string => slug !== null)
+
+  // Fetch products directly from commercetools
+  const productPromises = productSlugs.map(async (slug) => {
+    try {
+      const product = await fetchCommercetoolsProductBySlug(slug, { locale })
+      return product
+    } catch (error) {
+      console.error(`[FeaturedProducts] Error fetching product ${slug} from commercetools:`, error)
+      return null
+    }
+  })
+
+  const productResults = await Promise.all(productPromises)
+  const products = productResults.filter((p): p is IProduct & { commercetoolsId?: string } => p !== null)
+
+  if (products.length === 0 && productSlugs.length > 0) {
+    console.warn(`[FeaturedProducts] No products were found. Check that the slugs in Agility CMS match the product slugs in commercetools.`)
+  }
 
   return (
     <div className="relative bg-white" data-agility-component={contentID}>
@@ -77,11 +116,16 @@ export const FeaturedProducts = async ({ module, languageCode }: UnloadedModuleP
         </h2>
         <div
           className="mx-auto grid max-w-md grid-cols-1 gap-y-6 px-4 sm:max-w-7xl sm:grid-cols-3 sm:gap-x-6 sm:gap-y-0 sm:px-6 lg:gap-x-8 lg:px-8"
-          data-agility-field="featuredProducts"
         >
-          {products.map((product) => (
-            <ProductCard key={product.contentID} product={product} />
-          ))}
+          {products.length > 0 ? (
+            products.map((product) => (
+              <ProductCard key={product.commercetoolsId || product.slug} product={product} />
+            ))
+          ) : (
+            <div className="col-span-full text-center text-gray-500">
+              <p>No featured products found. Please check the product slugs in Agility CMS.</p>
+            </div>
+          )}
         </div>
       </section>
     </div>

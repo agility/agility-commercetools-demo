@@ -1,6 +1,5 @@
 'use client'
 
-import type { ContentItem } from "@agility/nextjs"
 import { Container } from "../../container"
 import { Heading } from "../../text"
 import { clsx } from "clsx"
@@ -21,7 +20,7 @@ interface ProductListingClientProps {
 	showFilters: boolean
 	showSortOptions: boolean
 	ctaLabel: string
-	products: ContentItem<IProduct>[]
+	products: (IProduct & { commercetoolsId?: string })[]
 	contentID: number
 	languageCode: string
 }
@@ -46,9 +45,8 @@ export const ProductListingClient = ({
 	const categories = useMemo(() => {
 		const categorySet = new Set<string>()
 		products.forEach((product) => {
-			if (product.fields.category?.fields?.name) {
-				categorySet.add(product.fields.category.fields.name)
-			}
+			// commercetools products don't have nested category structure
+			// Categories would need to be handled differently if needed
 		})
 		return Array.from(categorySet).sort()
 	}, [products])
@@ -57,29 +55,29 @@ export const ProductListingClient = ({
 	const filteredAndSortedProducts = useMemo(() => {
 		let result = [...products]
 
-		// Filter by category
+		// Filter by category (if categories are implemented)
 		if (selectedCategory !== 'all') {
-			result = result.filter((product) => product.fields.category?.fields?.name === selectedCategory)
+			// Category filtering would need to be implemented based on commercetools category structure
 		}
 
 		// Sort products
 		switch (sortOption) {
 			case 'price-low':
 				result.sort((a, b) => {
-					const priceA = parseFloat(a.fields.basePrice || '0')
-					const priceB = parseFloat(b.fields.basePrice || '0')
+					const priceA = parseFloat(a.basePrice || '0')
+					const priceB = parseFloat(b.basePrice || '0')
 					return priceA - priceB
 				})
 				break
 			case 'price-high':
 				result.sort((a, b) => {
-					const priceA = parseFloat(a.fields.basePrice || '0')
-					const priceB = parseFloat(b.fields.basePrice || '0')
+					const priceA = parseFloat(a.basePrice || '0')
+					const priceB = parseFloat(b.basePrice || '0')
 					return priceB - priceA
 				})
 				break
 			case 'name-az':
-				result.sort((a, b) => a.fields.title.localeCompare(b.fields.title))
+				result.sort((a, b) => a.title.localeCompare(b.title))
 				break
 			default:
 				// Keep original order
@@ -205,7 +203,7 @@ export const ProductListingClient = ({
 			>
 				{filteredAndSortedProducts.map((product, index) => (
 					<ProductCard
-						key={product.contentID}
+						key={product.commercetoolsId || product.slug}
 						product={product}
 						displayStyle={displayStyle}
 						ctaLabel={ctaLabel}

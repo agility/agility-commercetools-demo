@@ -14,5 +14,6 @@ export interface IProduct {
   variants?: {
     referencename: string
     fulllist: boolean
-  }
+  } | IVariant[] // commercetools products have variants as array
+  commercetoolsId?: string // commercetools product ID
 }

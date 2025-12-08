@@ -4,7 +4,8 @@ import { useCart } from "@/lib/hooks/useCart"
 import type { ICartItem } from "@/lib/types/ICart"
 import { formatPrice } from "@/lib/utils"
 import { MinusIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline"
-import { AgilityPic } from "@agility/nextjs"
+import Image from "next/image"
+import { getImageDimensions } from "@/lib/utils/imageOptimization"
 
 interface CartLineItemProps {
   item: ICartItem
@@ -35,16 +36,24 @@ export function CartLineItem({ item }: CartLineItemProps) {
       {/* Product Image */}
       <div className="relative size-24 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
         {item.variant.variantImage?.url ? (
-          <AgilityPic
-            image={item.variant.variantImage}
-            fallbackWidth={96}
+          <Image
+            src={item.variant.variantImage.url}
+            alt={item.variant.variantImage.label || item.product.title}
+            width={item.variant.variantImage.width || getImageDimensions('cart').width}
+            height={item.variant.variantImage.height || getImageDimensions('cart').height}
             className="size-full object-cover"
+            sizes="96px"
+            quality={85}
           />
         ) : item.product.featuredImage?.url ? (
-          <AgilityPic
-            image={item.product.featuredImage}
-            fallbackWidth={96}
+          <Image
+            src={item.product.featuredImage.url}
+            alt={item.product.featuredImage.label || item.product.title}
+            width={item.product.featuredImage.width || getImageDimensions('cart').width}
+            height={item.product.featuredImage.height || getImageDimensions('cart').height}
             className="size-full object-cover"
+            sizes="96px"
+            quality={85}
           />
         ) : (
           <div className="flex size-full items-center justify-center text-gray-400">

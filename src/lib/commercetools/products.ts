@@ -39,11 +39,11 @@ export function transformCommercetoolsProduct(
   // Get featured image from master variant
   const featuredImage = masterVariant?.images?.[0]
     ? {
-        url: masterVariant.images[0].url,
-        label: masterVariant.images[0].label || '',
-        width: masterVariant.images[0].dimensions?.w || 0,
-        height: masterVariant.images[0].dimensions?.h || 0,
-      }
+      url: masterVariant.images[0].url,
+      label: masterVariant.images[0].label || '',
+      width: masterVariant.images[0].dimensions?.w || 0,
+      height: masterVariant.images[0].dimensions?.h || 0,
+    }
     : undefined
 
   // Transform variants
@@ -150,6 +150,7 @@ export async function fetchCommercetoolsProducts(options?: {
 
 /**
  * Fetch a single product by slug from commercetools
+ * Uses exact slug matching - the slug must match exactly what's stored in commercetools
  */
 export async function fetchCommercetoolsProductBySlug(
   slug: string,
@@ -161,24 +162,48 @@ export async function fetchCommercetoolsProductBySlug(
   const locale = options?.locale || 'en'
 
   try {
-    const response = await apiRoot
-      .productProjections()
-      .get({
-        queryArgs: {
-          where: [`slug(en="${slug}")`],
-          limit: 1,
-          localeProjection: locale,
-        },
-      })
-      .execute()
+    // commercetools slug query format: slug(locale="value")
+    // Try the provided locale first, then fallback to common locales
+    const localeVariants = [
+      locale, // e.g., "en"
+      'en',   // English fallback
+      'en-US', // US English
+      locale.split('-')[0], // Base locale if locale is like "en-US" -> "en"
+    ].filter((v, i, arr) => arr.indexOf(v) === i) // Remove duplicates
 
-    if (response.body.results.length === 0) {
-      return null
+    for (const loc of localeVariants) {
+      try {
+        const whereClause = `slug(${loc}="${slug}")`
+
+        const response = await apiRoot
+          .productProjections()
+          .get({
+            queryArgs: {
+              where: [whereClause],
+              limit: 1,
+              localeProjection: locale,
+            },
+          })
+          .execute()
+
+        if (response.body.results.length > 0) {
+          return transformCommercetoolsProduct(response.body.results[0])
+        }
+      } catch (err) {
+        // If query syntax is invalid, try next locale variant
+        console.warn(`[commercetools] Query failed for locale "${loc}":`, err)
+        continue
+      }
     }
 
-    return transformCommercetoolsProduct(response.body.results[0])
+    // If we get here, product wasn't found with any locale variant
+    console.error(`[commercetools] Product not found with slug: "${slug}"`)
+    console.error(`[commercetools] Tried locales: ${localeVariants.join(', ')}`)
+    console.error(`[commercetools] Make sure the slug "${slug}" exists in commercetools and matches exactly (including case and special characters)`)
+
+    return null
   } catch (error) {
-    console.error('Error fetching product by slug from commercetools:', error)
+    console.error('[commercetools] Error fetching product by slug:', error)
     throw error
   }
 }

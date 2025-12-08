@@ -36,33 +36,24 @@ export async function POST(request: NextRequest) {
       country
     )
 
-    // Fetch product details and add line items to cart
-    // Note: We need to get the commercetools product IDs from the slugs/SKUs
-    const lineItemsToAdd = await Promise.all(
-      body.items.map(async (item) => {
-        // Try to fetch product by slug to get the commercetools product ID
-        const product = await fetchCommercetoolsProductBySlug(item.product.slug)
+    // Prepare line items using product IDs from cart items
+    // commercetools supports adding by productId + variantId or by SKU
+    const lineItemsToAdd = body.items.map((item) => {
+      // Use productId from cart item (commercetools product ID)
+      const productId = item.productId || item.product.commercetoolsId
 
-        if (!product) {
-          throw new Error(`Product not found: ${item.product.slug}`)
-        }
+      if (!productId) {
+        throw new Error(`Product ID missing for item: ${item.product.slug}`)
+      }
 
-        // Find the variant by SKU
-        const variant = product.variants?.find(
-          (v) => v.variantSKU === item.variantSKU
-        )
-
-        if (!variant) {
-          throw new Error(`Variant not found: ${item.variantSKU}`)
-        }
-
-        // Use SKU for adding line items (commercetools supports SKU-based line items)
-        return {
-          sku: item.variantSKU,
-          quantity: item.quantity,
-        }
-      })
-    )
+      // Use SKU for variant identification (commercetools supports SKU-based line items)
+      // This is more reliable than trying to match variant IDs
+      return {
+        productId,
+        sku: item.variantSKU,
+        quantity: item.quantity,
+      }
+    })
 
     // Add line items to the cart using SKUs
     const updatedCart = await addLineItemsToCart(

@@ -62,6 +62,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addItem = useCallback(
     (product: IProduct, variant: IVariant, quantity: number = 1) => {
       const variantSKU = variant.variantSKU || `${product.sku}-${variant.color || variant.colorName || 'default'}`
+      // Use commercetools product ID if available, otherwise fallback to SKU
+      const productId = product.commercetoolsId || product.sku || 'unknown'
 
       setItems((currentItems) => {
         const existingItem = currentItems.find(
@@ -79,7 +81,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return [
           ...currentItems,
           {
-            productId: 0, // Will be set properly in real implementation
+            productId, // commercetools product ID
             variantSKU,
             product,
             variant,

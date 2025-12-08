@@ -3,8 +3,10 @@
 import { Link } from '@/components/link'
 import { type IPostMin } from '@/lib/cms-content/getPostListing'
 import { AgilityPic } from '@agility/nextjs'
+import Image from 'next/image'
 import { createPostImageTransitionName } from '@/lib/hooks/useViewTransition'
 import { unstable_ViewTransition as ViewTransition } from 'react'
+import { getImageDimensions, getResponsiveSources } from '@/lib/utils/imageOptimization'
 
 interface PostCardProps {
 	post: IPostMin
@@ -19,18 +21,26 @@ export function PostCard({ post }: PostCardProps) {
 			<article className="relative isolate flex flex-col gap-8 lg:flex-row transition-all duration-200 ease-in-out hover:scale-[1.02] hover:shadow-lg hover:shadow-gray-200/50 dark:hover:shadow-gray-800/50 rounded-3xl p-6 -m-6 focus-within:ring-2 focus-within:ring-gray-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-900">
 				<div className="relative aspect-video sm:aspect-2/1 lg:aspect-square lg:w-64 lg:shrink-0">
 					<ViewTransition name={createPostImageTransitionName(post.contentID)}>
-						<AgilityPic
-							image={post.image}
-							fallbackWidth={400}
-							className="absolute inset-0 w-full h-full rounded-2xl bg-gray-50 dark:bg-gray-800 object-cover transition-transform duration-200 ease-in-out group-hover:scale-105 dark:grayscale"
-							sources={[
-								{ media: "(max-width: 639px)", width: 640 },
-								{ media: "(max-width: 767px)", width: 800 },
-								{ media: "(max-width: 1023px)", width: 1200 },
-
-
-							]}
-						/>
+						{post.image ? (
+							<AgilityPic
+								image={post.image}
+								fallbackWidth={getImageDimensions('post-card').fallbackWidth}
+								className="absolute inset-0 w-full h-full rounded-2xl bg-gray-50 dark:bg-gray-800 object-cover transition-transform duration-200 ease-in-out group-hover:scale-105 dark:grayscale"
+								sources={getResponsiveSources('post-card')}
+							/>
+						) : post.productImage ? (
+							<Image
+								src={post.productImage.url}
+								alt={post.productImage.label || post.title}
+								width={post.productImage.width || getImageDimensions('post-card').width}
+								height={post.productImage.height || getImageDimensions('post-card').height}
+								className="absolute inset-0 w-full h-full rounded-2xl bg-gray-50 dark:bg-gray-800 object-cover transition-transform duration-200 ease-in-out group-hover:scale-105 dark:grayscale"
+								sizes="(max-width: 639px) 640px, (max-width: 767px) 800px, (max-width: 1023px) 1200px, 1200px"
+								quality={85}
+							/>
+						) : (
+							<div className="absolute inset-0 w-full h-full rounded-2xl bg-gray-50 dark:bg-gray-800" />
+						)}
 					</ViewTransition>
 					<div className="absolute inset-0 rounded-2xl ring-1 ring-gray-900/10 dark:ring-white/10 ring-inset" />
 				</div>

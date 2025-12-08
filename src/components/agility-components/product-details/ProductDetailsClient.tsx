@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AgilityPic, type ContentItem, type ImageField } from '@agility/nextjs'
+import { type ContentItem, type ImageField } from '@agility/nextjs'
+import Image from 'next/image'
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import { ShoppingCartIcon, TruckIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { motion } from 'motion/react'
@@ -12,6 +13,7 @@ import type { IProduct } from '@/lib/types/IProduct'
 import type { IVariant } from '@/lib/types/IVariant'
 import type { ISize } from '@/lib/types/ISize'
 import type { IProductImage } from '@/lib/types/IProductImage'
+import { getImageDimensions, getResponsiveSources } from '@/lib/utils/imageOptimization'
 
 interface IRelatedProduct {
 	title: string
@@ -141,15 +143,14 @@ export function ProductDetailsClient({
 						{/* Main Image */}
 						<div className="aspect-square w-full overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800">
 							{selectedImage?.url ? (
-								<AgilityPic
-									image={selectedImage}
-									fallbackWidth={800}
+								<Image
+									src={selectedImage.url}
+									alt={selectedImage.label || fields.title}
+									width={selectedImage.width || getImageDimensions('detail-main').width}
+									height={selectedImage.height || getImageDimensions('detail-main').height}
 									className="h-full w-full object-cover object-center"
-									sources={[
-										{ media: "(max-width: 639px)", width: 600 },
-										{ media: "(max-width: 1023px)", width: 800 },
-										{ media: "(min-width: 1024px)", width: 1000 }
-									]}
+									sizes="(max-width: 639px) 600px, (max-width: 1023px) 800px, 1200px"
+									quality={85}
 								/>
 							) : (
 								<div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
@@ -175,10 +176,14 @@ export function ProductDetailsClient({
 											: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
 									)}
 								>
-									<AgilityPic
-										image={fields.featuredImage}
-										fallbackWidth={200}
+									<Image
+										src={fields.featuredImage.url}
+										alt={fields.featuredImage.label || fields.title}
+										width={fields.featuredImage.width || getImageDimensions('detail-thumb').width}
+										height={fields.featuredImage.height || getImageDimensions('detail-thumb').height}
 										className="h-full w-full object-cover"
+										sizes="200px"
+										quality={85}
 									/>
 								</button>
 							)}
@@ -202,10 +207,14 @@ export function ProductDetailsClient({
 												: 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
 										)}
 									>
-										<AgilityPic
-											image={variantImage}
-											fallbackWidth={200}
+										<Image
+											src={variantImage.url}
+											alt={variantImage.label || `${fields.title} - ${variant.fields.colorName || variant.fields.color}`}
+											width={variantImage.width || getImageDimensions('detail-thumb').width}
+											height={variantImage.height || getImageDimensions('detail-thumb').height}
 											className="h-full w-full object-cover"
+											sizes="200px"
+											quality={85}
 										/>
 									</button>
 								)
@@ -390,14 +399,14 @@ export function ProductDetailsClient({
 								>
 									<div className="aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
 										{relatedProduct.fields.featuredImage?.url ? (
-											<AgilityPic
-												image={relatedProduct.fields.featuredImage}
-												fallbackWidth={400}
+											<Image
+												src={relatedProduct.fields.featuredImage.url}
+												alt={relatedProduct.fields.featuredImage.label || relatedProduct.fields.title}
+												width={relatedProduct.fields.featuredImage.width || getImageDimensions('card').width}
+												height={relatedProduct.fields.featuredImage.height || getImageDimensions('card').height}
 												className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-												sources={[
-													{ media: "(max-width: 639px)", width: 300 },
-													{ media: "(min-width: 640px)", width: 400 }
-												]}
+												sizes="(max-width: 639px) 400px, (max-width: 1023px) 600px, 800px"
+												quality={85}
 											/>
 										) : (
 											<div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">

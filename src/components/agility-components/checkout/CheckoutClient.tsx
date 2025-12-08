@@ -2,11 +2,13 @@
 
 import { useCart } from "@/lib/hooks/useCart"
 import { motion, AnimatePresence } from "motion/react"
-import { AgilityPic } from "@agility/nextjs"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ExclamationCircleIcon } from "@heroicons/react/24/outline"
+import { checkoutFlow } from "@commercetools/checkout-browser-sdk"
+import { getImageDimensions } from "@/lib/utils/imageOptimization"
 
 interface CheckoutClientProps {
   heading: string
@@ -23,6 +25,7 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
   const [email, setEmail] = useState("")
   const [createAccount, setCreateAccount] = useState(false)
   const [authenticatedCustomerId, setAuthenticatedCustomerId] = useState<string | null>(null)
+  const checkoutInitialized = useRef(false)
 
 
   // Redirect to products if cart is empty
@@ -42,14 +45,24 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
       setIsLoading(true)
       setError(null)
 
+      // Prevent multiple initializations
+      if (checkoutInitialized.current) {
+        return
+      }
+
       const customerId = typeof window !== 'undefined' ? sessionStorage.getItem("customer_id") : undefined
 
-      // Build request body based on authentication state
+      // Build request body for checkout session creation
       const requestBody: {
         items: typeof cart.items
         customerId?: string
+        email?: string
+        currency?: string
+        country?: string
       } = {
-        items: cart.items
+        items: cart.items,
+        currency: "USD",
+        country: "US",
       }
 
       // If authenticated, use customer ID
@@ -57,10 +70,13 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
         requestBody.customerId = customerId
       }
 
-      // Otherwise, proceed with pure guest checkout (Stripe will collect email)
+      // If email provided, include it
+      if (email) {
+        requestBody.email = email
+      }
 
-      // Create checkout session
-      const response = await fetch("/api/checkout", {
+      // Create commercetools checkout session
+      const response = await fetch("/api/checkout/session/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,19 +87,42 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create checkout session")
+        throw new Error(data.error || data.message || "Failed to create checkout session")
       }
 
-      // Redirect to Stripe checkout using the URL
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error("No checkout URL returned")
+      if (!data.sessionId || !data.region || !data.projectKey) {
+        throw new Error("Invalid checkout session response")
       }
+
+      // Initialize commercetools Checkout SDK
+      checkoutInitialized.current = true
+
+      checkoutFlow({
+        projectKey: data.projectKey,
+        region: data.region,
+        sessionId: data.sessionId,
+        locale: typeof window !== 'undefined' ? navigator.language.split('-')[0] || 'en' : 'en',
+        logInfo: process.env.NODE_ENV === 'development',
+        logWarn: process.env.NODE_ENV === 'development',
+        logError: true,
+        onInfo: (info) => {
+          console.log('[Checkout Info]', info)
+        },
+        onWarn: (warn) => {
+          console.warn('[Checkout Warning]', warn)
+        },
+        onError: (err) => {
+          console.error('[Checkout Error]', err)
+          setError(err.message || 'Checkout error occurred')
+          setIsLoading(false)
+          checkoutInitialized.current = false
+        },
+      })
     } catch (err) {
       console.error("Checkout error:", err)
       setError(err instanceof Error ? err.message : "An error occurred")
       setIsLoading(false)
+      checkoutInitialized.current = false
     }
   }
 
@@ -158,10 +197,14 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
                     >
                       {item.product.featuredImage && (
                         <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-gray-100 dark:bg-gray-700">
-                          <AgilityPic
-                            image={item.product.featuredImage}
-                            fallbackWidth={80}
+                          <Image
+                            src={item.product.featuredImage.url}
+                            alt={item.product.featuredImage.label || item.product.title}
+                            width={item.product.featuredImage.width || getImageDimensions('cart').width}
+                            height={item.product.featuredImage.height || getImageDimensions('cart').height}
                             className="size-full object-cover"
+                            sizes="80px"
+                            quality={85}
                           />
                         </div>
                       )}
@@ -318,7 +361,7 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
 
                   <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
                     <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-                      Secure checkout powered by Stripe
+                      Secure checkout powered by commercetools
                     </p>
                   </div>
                 </div>

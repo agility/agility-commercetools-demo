@@ -1,10 +1,12 @@
 import { DateTime } from "luxon"
 import { type ContentList } from "@agility/content-fetch"
-import { type ImageField } from "@agility/nextjs"
+import { type ImageField, type ContentItem } from "@agility/nextjs"
 import { getContentList } from "@/lib/cms/getContentList"
 import { getSitemapFlat } from "@/lib/cms/getSitemapFlat"
 import { type IPost } from "../types/IPost"
+import { type IProduct } from "../types/IProduct"
 import { defaultLocale, locales } from "@/lib/i18n/config"
+import { fetchCommercetoolsProductBySlug } from "@/lib/commercetools/products"
 
 export interface IPostMin {
 
@@ -13,10 +15,12 @@ export interface IPostMin {
 	date: string
 	url: string
 	category: string
-	image: ImageField
+	image: ImageField | null
+	productImage: ImageField | null // Product image from commercetools
 	author: string
 	authorImage: ImageField | null
 	excerpt: string
+	featuredProduct?: string // Product name/slug
 }
 
 interface LoadPostsProp {
@@ -57,7 +61,7 @@ export const getPostListing = async ({ sitemap, locale, skip, take }: LoadPostsP
 		})		// resolve dynamic urls
 		const dynamicUrls = resolvePostUrls(sitemapNodes, rawPosts.items)
 
-		const posts: IPostMin[] = rawPosts.items.map((post: any) => {
+		const posts: IPostMin[] = await Promise.all(rawPosts.items.map(async (post: any) => {
 
 			const category = post.fields.category?.fields.name || "Uncategorized"
 			const author = post.fields.author?.fields.name || ""
@@ -86,18 +90,69 @@ export const getPostListing = async ({ sitemap, locale, skip, take }: LoadPostsP
 				}
 			}
 
+			// Extract product image from embedded featuredProduct field
+			let productImage: ImageField | null = null
+			const featuredProduct = post.fields.featuredProduct || null
+
+			if (featuredProduct) {
+				try {
+					// Handle embedded product format (same as FeaturedProducts component)
+					// Could be: JSON string, ContentItem<IProduct>, or ContentItem<IProduct>[]
+					let product: IProduct | null = null
+
+					if (typeof featuredProduct === 'string') {
+						// Parse JSON string format like: '{"id":"...","path":"ben-pillow-cover","sku":"...","name":"..."}'
+						try {
+							const parsed = JSON.parse(featuredProduct)
+							// If it's a JSON object with product data, extract the slug and fetch
+							if (parsed.path || parsed.slug) {
+								const localeCode = locale.split('-')[0] || 'en'
+								product = await fetchCommercetoolsProductBySlug(
+									parsed.path || parsed.slug,
+									{ locale: localeCode }
+								)
+							}
+						} catch (jsonError) {
+							// Not JSON, treat as plain slug string
+							const localeCode = locale.split('-')[0] || 'en'
+							product = await fetchCommercetoolsProductBySlug(
+								featuredProduct.toLowerCase().replace(/\s+/g, '-'),
+								{ locale: localeCode }
+							)
+						}
+					} else if (featuredProduct && typeof featuredProduct === 'object') {
+						// Handle ContentItem<IProduct> or ContentItem<IProduct>[]
+						if (Array.isArray(featuredProduct) && featuredProduct.length > 0) {
+							// Take first product from array
+							product = featuredProduct[0].fields as IProduct
+						} else if ('fields' in featuredProduct) {
+							// Single ContentItem<IProduct>
+							product = featuredProduct.fields as IProduct
+						}
+					}
+
+					if (product?.featuredImage) {
+						productImage = product.featuredImage
+					}
+				} catch (error) {
+					console.error(`Error extracting product for post ${post.contentID}:`, error)
+				}
+			}
+
 			return {
 				contentID: post.contentID,
 				title: post.fields.heading,
 				date,
 				url,
 				category,
-				image: post.fields.image,
+				image: post.fields.image || null,
+				productImage,
 				author,
 				authorImage,
-				excerpt
+				excerpt,
+				featuredProduct
 			}
-		})
+		}))
 
 		return {
 			totalCount: rawPosts.totalCount,

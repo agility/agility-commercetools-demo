@@ -1,23 +1,20 @@
 import { getContentItem } from '@/lib/cms/getContentItem'
-import { getContentList } from '@/lib/cms/getContentList'
-import type { ContentItem, UnloadedModuleProps } from '@agility/nextjs'
+import type { UnloadedModuleProps, ContentItem } from '@agility/nextjs'
 import { ProductDetailsClient } from './ProductDetailsClient'
 import type { IProductDetails } from '@/lib/types/IProductDetails'
 import type { IProduct } from '@/lib/types/IProduct'
 import type { IVariant } from '@/lib/types/IVariant'
-import type { ISize } from '@/lib/types/ISize'
-import type { IProductImage } from '@/lib/types/IProductImage'
-import type { ImageField } from '@agility/nextjs'
+import { fetchCommercetoolsProducts } from '@/lib/commercetools/products'
 
 interface IRelatedProduct {
 	title: string
 	basePrice: string
-	featuredImage?: ImageField
+	featuredImage?: { url: string; label?: string; width?: number; height?: number }
 	slug: string
 }
 
 // Server component wrapper
-export const ProductDetails = async ({ module, languageCode, dynamicPageItem }: UnloadedModuleProps) => {
+export const ProductDetails = async ({ module, languageCode, globalData }: UnloadedModuleProps) => {
 	// Get ProductDetails configuration
 	const {
 		fields: config,
@@ -27,7 +24,10 @@ export const ProductDetails = async ({ module, languageCode, dynamicPageItem }: 
 		languageCode,
 	})
 
-	if (!dynamicPageItem) {
+	// Get product from globalData (set by middleware/getAgilityPage)
+	const product = globalData?.product as (IProduct & { commercetoolsId?: string }) | undefined
+
+	if (!product) {
 		return (
 			<div className="mx-auto max-w-7xl px-4 py-12 text-center" data-agility-component={contentID}>
 				<p className="text-gray-600 dark:text-gray-400">Product not found</p>
@@ -35,48 +35,56 @@ export const ProductDetails = async ({ module, languageCode, dynamicPageItem }: 
 		)
 	}
 
-	const product = dynamicPageItem as ContentItem<IProduct>
-
-	// Fetch product variants
-	let variantsResponse = { items: [] as ContentItem<IVariant>[] }
-	if (product.fields.variants?.referencename) {
-		variantsResponse = await getContentList<IVariant>({
-			referenceName: product.fields.variants.referencename,
-			languageCode,
-			take: 50,
-		})
+	// Transform commercetools product to ContentItem<IProduct> format for ProductDetailsClient
+	const productContentItem: ContentItem<IProduct> = {
+		contentID: parseInt(product.commercetoolsId || '0') || 1000,
+		fields: {
+			...product,
+			commercetoolsId: product.commercetoolsId,
+		} as IProduct & { commercetoolsId?: string },
 	}
 
-	// Fetch all unique sizes referenced by variants
-	const sizeIds = [...new Set(variantsResponse.items.map(v => {
-		const size = v.fields.size as { contentid: number } | ContentItem<ISize>
-		return 'contentid' in size ? size.contentid : size.contentID
-	}))]
-	const sizesMap = new Map<number, ContentItem<ISize>>()
+	// Transform variants from commercetools format
+	const variantContentItems: ContentItem<IVariant>[] = Array.isArray(product.variants)
+		? product.variants.map((variant, index) => ({
+			contentID: index + 2000,
+			fields: variant,
+		}))
+		: []
 
-	// In a real implementation, you'd fetch sizes in a single call
-	// For now, we'll create a placeholder map
-	// You would typically fetch from a sizes list and match by contentid
-
-	// Fetch product images if available
-	let productImages: ContentItem<IProductImage>[] = []
-	// Note: The product.fields.images structure is not defined in IProduct yet
-	// You may need to add it to the IProduct interface
-
-	// Fetch related products from same category if enabled
+	// Fetch related products if enabled
 	let relatedProducts: ContentItem<IRelatedProduct>[] = []
-	if (config.showRelatedProducts === "true" && product.fields.category) {
-		// In a real implementation, you'd query products by category
-		// For now, we'll leave it empty
+	if (config.showRelatedProducts === "true") {
+		try {
+			const localeCode = languageCode.split('-')[0] || 'en'
+			const relatedResponse = await fetchCommercetoolsProducts({
+				limit: 4,
+				locale: localeCode,
+			})
+			relatedProducts = relatedResponse.results
+				.filter(p => p.commercetoolsId !== product.commercetoolsId)
+				.slice(0, 3)
+				.map((p, index) => ({
+					contentID: index + 3000,
+					fields: {
+						title: p.title,
+						basePrice: p.basePrice,
+						featuredImage: p.featuredImage,
+						slug: p.slug,
+					},
+				}))
+		} catch (error) {
+			console.error('Error fetching related products:', error)
+		}
 	}
 
 	return (
 		<ProductDetailsClient
 			config={config}
-			product={product}
-			variants={variantsResponse.items}
-			sizes={sizesMap}
-			productImages={productImages}
+			product={productContentItem}
+			variants={variantContentItems}
+			sizes={new Map()} // Sizes come from variant attributes in commercetools
+			productImages={[]} // Product images come from featuredImage and variant images
 			relatedProducts={relatedProducts}
 			contentID={contentID.toString()}
 		/>
