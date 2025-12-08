@@ -21,6 +21,22 @@ export async function middleware(request: NextRequest) {
 
 	const ext = request.nextUrl.pathname.includes(".") ? request.nextUrl.pathname.split('.').pop() : null
 
+	/*****************************
+	 * *** PRODUCT ROUTES ***
+	 * Handle /products/[slug] routes specially
+	 * These bypass Agility CMS and go directly to commercetools products
+	 *******************************/
+
+	// Check if this is a product route (with or without locale prefix)
+	// Pattern: /products/slug or /locale/products/slug
+	const productRoutePattern = /^\/([a-z]{2}(-[a-z]{2})?\/)?products\/[^\/]+$/
+	const isProductRoute = productRoutePattern.test(pathname)
+	if (isProductRoute && !ext) {
+		// Let Next.js handle this route - don't rewrite or redirect
+		// The product page will be served from app/[locale]/products/[slug]/page.tsx
+		return NextResponse.next()
+	}
+
 
 	if (request.nextUrl.searchParams.has("agilitypreviewkey")) {
 		//*** this is a preview request ***

@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
 import type { ICartItem } from "@/lib/types/ICart"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-09-30.clover",
-})
+import { createCart, addLineItemsToCart, createOrderFromCart } from "@/lib/commercetools/cart"
+import { fetchCommercetoolsProductBySlug } from "@/lib/commercetools/products"
 
 interface CheckoutRequestBody {
   items: ICartItem[]
-  customerId?: string // Stripe customer ID for authenticated users
-  email?: string // Optional email for guest checkout or account creation
+  customerId?: string // commercetools customer ID for authenticated users
+  email?: string // Optional email for guest checkout
   createAccount?: boolean
+  currency?: string
+  country?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -26,106 +25,84 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get("origin")
     const siteUrl = origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 
-    // Determine customer handling based on authentication and input
-    let customerId: string | undefined
-    let customerEmail: string | undefined
-    let isGuest = false
+    const currency = body.currency || "USD"
+    const country = body.country || "US"
 
-    // Priority 1: Authenticated user with customer ID from session
-    if (body.customerId) {
-      customerId = body.customerId
-      console.log("[Checkout] Using customer ID from session:", customerId)
+    // Create a cart in commercetools
+    const cart = await createCart(
+      body.customerId,
+      body.email,
+      currency,
+      country
+    )
 
-      // Verify customer exists and get their email
-      try {
-        const customer = await stripe.customers.retrieve(body.customerId)
-        if (customer.deleted) {
-          console.error("[Checkout] Customer account deleted:", customerId)
-          return NextResponse.json({ error: "Customer account not found" }, { status: 404 })
+    // Fetch product details and add line items to cart
+    // Note: We need to get the commercetools product IDs from the slugs/SKUs
+    const lineItemsToAdd = await Promise.all(
+      body.items.map(async (item) => {
+        // Try to fetch product by slug to get the commercetools product ID
+        const product = await fetchCommercetoolsProductBySlug(item.product.slug)
+
+        if (!product) {
+          throw new Error(`Product not found: ${item.product.slug}`)
         }
-        customerEmail = customer.email || undefined
-        console.log("[Checkout] Verified customer email:", customerEmail)
-      } catch (error) {
-        console.error("[Checkout] Error retrieving customer:", error)
-        return NextResponse.json({ error: "Invalid customer ID" }, { status: 400 })
-      }
-    }
 
+        // Find the variant by SKU
+        const variant = product.variants?.find(
+          (v) => v.variantSKU === item.variantSKU
+        )
 
-    // Create line items for Stripe checkout
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = body.items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.product.title,
-          description: `${item.variant.color || ""} - ${item.variant.size.fields.title || ""}`.trim(),
-          images: item.product.featuredImage?.url ? [item.product.featuredImage.url] : [],
-          metadata: {
-            productSku: item.product.sku,
-            variantSKU: item.variantSKU,
-          },
-        },
-        unit_amount: Math.round(item.variant.price * 100), // Convert to cents
-      },
-      quantity: item.quantity,
-    }))
+        if (!variant) {
+          throw new Error(`Variant not found: ${item.variantSKU}`)
+        }
 
-    // Create Stripe checkout session with customer association
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ["card"],
-      line_items: lineItems,
-      mode: "payment",
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/checkout/cancel`,
-      customer: customerId,
-      customer_creation: customerId ? undefined : "always", // Let Stripe collect email for guest
-      metadata: {
-        cartItemCount: body.items.length.toString(),
-        createAccount: body.createAccount ? "true" : "false",
-        isGuest: isGuest.toString(),
-        orderItems: JSON.stringify(
-          body.items.map((item) => ({
-            productId: item.productId,
-            variantSKU: item.variantSKU,
-            productTitle: item.product.title,
-            quantity: item.quantity,
-            price: item.variant.price,
-          }))
-        ),
-      },
-    }
+        // Use SKU for adding line items (commercetools supports SKU-based line items)
+        return {
+          sku: item.variantSKU,
+          quantity: item.quantity,
+        }
+      })
+    )
 
-    // Add customer ID if we have one (authenticated or newly created)
-    if (customerId) {
-      sessionParams.customer = customerId
-    }
-    // Add customer email if provided and no customer ID (guest with email)
-    else if (customerEmail) {
-      sessionParams.customer_email = customerEmail
-    }
+    // Add line items to the cart using SKUs
+    const updatedCart = await addLineItemsToCart(
+      cart.id,
+      lineItemsToAdd,
+      cart.version
+    )
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
+    // Create order from cart
+    // Note: In a real implementation, you might want to handle payment first
+    // before creating the order. This is a simplified flow.
+    const order = await createOrderFromCart(
+      updatedCart.id,
+      updatedCart.version
+    )
 
     return NextResponse.json(
       {
-        sessionId: session.id,
-        url: session.url,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        cartId: cart.id,
+        totalPrice: {
+          centAmount: order.totalPrice.centAmount,
+          currencyCode: order.totalPrice.currencyCode,
+        },
+        // For compatibility with existing frontend, include a URL
+        // In commercetools, you'd typically redirect to a payment provider
+        url: `${siteUrl}/checkout/success?order_id=${order.id}`,
       },
       { status: 200 }
     )
 
   } catch (error) {
-    console.error('Error creating checkout session:', error)
-
-    if (error instanceof Stripe.errors.StripeError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode || 500 }
-      )
-    }
+    console.error('Error creating checkout:', error)
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     )
   }

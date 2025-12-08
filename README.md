@@ -1,15 +1,15 @@
 # Agility Demo Site 2025
 
-A modern, full-featured e-commerce demo site built with Next.js 15, Agility CMS, and Stripe. This project demonstrates best practices for headless CMS architecture, e-commerce functionality, AI-powered search, and internationalization.
+A modern, full-featured e-commerce demo site built with Next.js 15, Agility CMS, and commercetools. This project demonstrates best practices for headless CMS architecture, e-commerce functionality, AI-powered search, and internationalization.
 
 ## 🚀 Features
 
 ### E-Commerce
-- ✅ **Product Catalog** - Full product management with variants (color, size)
+- ✅ **Product Catalog** - Full product management powered by commercetools
 - ✅ **Shopping Cart** - Persistent cart with localStorage
-- ✅ **Stripe Checkout** - Secure payment processing
-- ✅ **Customer Accounts** - Magic link authentication
-- ✅ **Order Management** - Order history and customer portal
+- ✅ **commercetools Checkout** - Cart and order management via commercetools API
+- ✅ **Product Variants** - Color, size, and custom attributes
+- ✅ **Order Management** - Order creation and tracking via commercetools
 
 ### Content Management
 - ✅ **Agility CMS Integration** - Headless CMS with inline editing
@@ -44,7 +44,7 @@ A modern, full-featured e-commerce demo site built with Next.js 15, Agility CMS,
 - **TypeScript**: Full type safety
 - **CMS**: Agility CMS (@agility/nextjs 15.0.7)
 - **Styling**: Tailwind CSS v4
-- **Payments**: Stripe (stripe 19.1.0)
+- **E-commerce Backend**: commercetools (@commercetools/sdk-client-v2, @commercetools/platform-sdk)
 - **AI**: Azure OpenAI / OpenAI with Algolia
 - **Analytics**: PostHog, Google Analytics
 - **Animations**: Motion (Framer Motion alternative)
@@ -56,7 +56,7 @@ A modern, full-featured e-commerce demo site built with Next.js 15, Agility CMS,
 - Node.js 20+
 - npm or yarn
 - Agility CMS account
-- Stripe account (for e-commerce features)
+- commercetools account (for e-commerce features)
 - (Optional) Azure OpenAI or OpenAI API key (for AI search)
 - (Optional) Algolia account (for search)
 - (Optional) PostHog account (for analytics)
@@ -90,10 +90,13 @@ AGILITY_PATH_REVALIDATE_DURATION=3600
 NEXT_PUBLIC_POSTHOG_KEY=your-posthog-key
 NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 
-# Stripe (Optional - for e-commerce)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# commercetools (Required for e-commerce)
+CTP_PROJECT_KEY=your-project-key
+CTP_CLIENT_ID=your-client-id
+CTP_CLIENT_SECRET=your-client-secret
+CTP_AUTH_URL=https://auth.us-east-2.aws.commercetools.com
+CTP_API_URL=https://api.us-east-2.aws.commercetools.com
+CTP_SCOPES=view_products:your-project-key manage_orders:your-project-key ...
 
 # AI Search (Optional)
 AZURE_OPENAI_API_KEY=...
@@ -135,9 +138,9 @@ src/
 │   │   └── layout.tsx    # Locale-specific layout
 │   └── api/               # API routes
 │       ├── ai/            # AI search endpoints
-│       ├── checkout/      # Stripe checkout
-│       ├── products/      # Product API
-│       └── webhooks/      # Stripe webhooks
+│       ├── checkout/      # commercetools checkout
+│       ├── products/      # Product API (commercetools)
+│       └── webhooks/      # Payment webhooks (if configured)
 ├── components/            # React components
 │   ├── agility-components/ # CMS-connected components
 │   ├── cart/              # Shopping cart
@@ -159,6 +162,7 @@ This project includes comprehensive documentation:
 - **[QUICK_START.md](./QUICK_START.md)** - Get running in 15 minutes
 - **[AGILITY_SETUP_GUIDE.md](./AGILITY_SETUP_GUIDE.md)** - Complete CMS setup guide
 - **[ECOMMERCE_README.md](./ECOMMERCE_README.md)** - E-commerce implementation details
+- **[COMMERCETOOLS_INTEGRATION.md](./COMMERCETOOLS_INTEGRATION.md)** - commercetools integration guide
 - **[CHECKOUT_FLOW.md](./CHECKOUT_FLOW.md)** - Checkout flow documentation
 - **[CUSTOMER_SESSION_FLOW.md](./CUSTOMER_SESSION_FLOW.md)** - Customer authentication flow
 - **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Implementation overview
@@ -174,12 +178,12 @@ This project includes comprehensive documentation:
 
 ### E-Commerce Flow
 
-1. **Products** → Managed in Agility CMS with variants
+1. **Products** → Managed in commercetools with variants
 2. **Cart** → React Context with localStorage persistence
-3. **Checkout** → Stripe Checkout (hosted)
-4. **Orders** → Webhook processing and customer portal
+3. **Checkout** → commercetools Cart and Order APIs
+4. **Orders** → Order creation and management via commercetools
 
-See [ECOMMERCE_README.md](./ECOMMERCE_README.md) for details.
+See [COMMERCETOOLS_INTEGRATION.md](./COMMERCETOOLS_INTEGRATION.md) and [ECOMMERCE_README.md](./ECOMMERCE_README.md) for details.
 
 ### CMS Integration
 
@@ -243,7 +247,7 @@ All environment variables are validated via `src/lib/env.ts`. Use `env.get('VAR_
 - Node environment
 
 **Optional Variables:**
-- Stripe keys (for e-commerce)
+- commercetools credentials (for e-commerce)
 - AI provider keys (for AI search)
 - Algolia keys (for search)
 
@@ -262,9 +266,10 @@ The middleware (`src/middleware.ts`) handles:
 
 1. ✅ Run `npm run prebuild` to rebuild redirect cache
 2. ✅ Set all environment variables in your hosting platform
-3. ✅ Configure Stripe webhooks (production endpoint)
+3. ✅ Configure commercetools API credentials
 4. ✅ Set up PostHog project (if using analytics)
 5. ✅ Configure Agility CMS preview URLs
+6. ✅ Set up payment provider integration (if using commercetools payments)
 
 ### Recommended Platforms
 
@@ -288,7 +293,7 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 - [Agility CMS](https://agilitycms.com) - Headless CMS
 - [Next.js](https://nextjs.org) - React framework
-- [Stripe](https://stripe.com) - Payment processing
+- [commercetools](https://commercetools.com) - E-commerce platform
 - [Tailwind CSS](https://tailwindcss.com) - Utility-first CSS
 
 ---

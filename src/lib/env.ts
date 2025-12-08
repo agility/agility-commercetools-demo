@@ -23,7 +23,13 @@ type RequiredEnvVars = {
 }
 
 type OptionalEnvVars = {
-	// Add any optional environment variables here
+	// commercetools
+	CTP_PROJECT_KEY?: string
+	CTP_CLIENT_ID?: string
+	CTP_CLIENT_SECRET?: string
+	CTP_API_URL?: string
+	CTP_AUTH_URL?: string
+	CTP_SCOPES?: string
 }
 
 type EnvVars = RequiredEnvVars & Partial<OptionalEnvVars>
@@ -50,7 +56,14 @@ function getRequiredEnvVar<K extends keyof RequiredEnvVars>(key: K): RequiredEnv
  * Get an optional environment variable
  */
 function getOptionalEnvVar<K extends keyof OptionalEnvVars>(key: K, defaultValue?: OptionalEnvVars[K]): OptionalEnvVars[K] | undefined {
-	return process.env[key] as OptionalEnvVars[K] || defaultValue
+	return (process.env[key] as OptionalEnvVars[K]) || defaultValue
+}
+
+/**
+ * Get an optional environment variable by string key (for dynamic access)
+ */
+function getOptionalEnvVarByKey(key: string, defaultValue?: string): string | undefined {
+	return process.env[key] || defaultValue
 }
 
 /**
@@ -84,6 +97,7 @@ function getAllEnvVars(): EnvVars {
 export const env = {
 	get: getRequiredEnvVar,
 	getOptional: getOptionalEnvVar,
+	getOptionalByKey: getOptionalEnvVarByKey,
 	getAll: getAllEnvVars,
 
 	// Direct access to commonly used variables

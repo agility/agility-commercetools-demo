@@ -10,46 +10,40 @@ This guide will get your e-commerce site up and running quickly.
 
 - Node.js 20+ installed
 - Agility CMS account
-- Stripe account (test mode)
+- commercetools account
 - Code already deployed to this repo
 
 ---
 
-## Step 1: Configure Stripe (5 minutes)
+## Step 1: Configure commercetools (5 minutes)
 
-### Get Your Stripe Keys
+### Get Your commercetools Credentials
 
-1. Go to https://dashboard.stripe.com/test/apikeys
-2. Copy your **Publishable key** (starts with `pk_test_`)
-3. Copy your **Secret key** (starts with `sk_test_`)
+1. Go to commercetools Merchant Center
+2. Navigate to **Settings > Developer settings**
+3. Create a new API client or use existing credentials
+4. Copy your credentials:
+   - **Project Key** (e.g., `sample-store-1`)
+   - **Client ID** (e.g., `XmToF5sXofgOi2yRw1tCJeYb`)
+   - **Client Secret** (e.g., `rqWbYN1CaBfNq7qJHtcLmgxa1dmNzGSy`)
+   - **Auth URL** (e.g., `https://auth.us-east-2.aws.commercetools.com`)
+   - **API URL** (e.g., `https://api.us-east-2.aws.commercetools.com`)
 
 ### Update Environment Variables
 
-Open `.env.local` and update these lines:
+Open `.env.local` and add these lines:
 
 ```bash
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_key_here
-STRIPE_SECRET_KEY=sk_test_your_key_here
+# commercetools (Required for e-commerce)
+CTP_PROJECT_KEY=your-project-key
+CTP_CLIENT_ID=your-client-id
+CTP_CLIENT_SECRET=your-client-secret
+CTP_AUTH_URL=https://auth.us-east-2.aws.commercetools.com
+CTP_API_URL=https://api.us-east-2.aws.commercetools.com
+CTP_SCOPES=view_products:your-project-key manage_orders:your-project-key ...
 ```
 
-### Set Up Webhook (Local Development)
-
-Open a new terminal and run:
-```bash
-# Install Stripe CLI if you haven't
-brew install stripe/stripe-cli/stripe
-
-# Login to Stripe
-stripe login
-
-# Forward webhooks to local server
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
-```
-
-Copy the webhook secret (starts with `whsec_`) and add to `.env.local`:
-```bash
-STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
-```
+See `COMMERCETOOLS_INTEGRATION.md` for full setup details.
 
 ---
 
@@ -64,39 +58,27 @@ Visit: http://localhost:3000
 
 ---
 
-## Step 3: Create Content Models in Agility CMS (5 minutes)
+## Step 3: Set Up Products in commercetools (10 minutes)
 
-### Quick Model Creation
+**Note:** Products are managed in commercetools, not Agility CMS. Agility CMS handles all other content.
 
-**Category Model:**
-1. Go to Agility CMS → Settings → Models → Content Models
-2. Click "New Model"
-3. Name: `Category`, Reference: `categories`
-4. Add field: `Title` (Text, Required)
-5. Save
+### Quick Setup
 
-**Size Model:**
-1. Create new model
-2. Name: `Size`, Reference: `sizes`
-3. Add fields:
-   - `Title` (Text, Required)
-   - `Code` (Text, Required)
-   - `Description` (Text)
-4. Save
+1. Go to commercetools Merchant Center
+2. Navigate to **Products**
+3. Import sample products or create products manually
+4. Ensure products have:
+   - **Slug** (for URL routing, e.g., `classic-coffee-cup`)
+   - **SKU** (for variants)
+   - **Variants** (colors, sizes, etc.)
+   - **Prices** (configured per variant)
+   - **Images** (product and variant images)
 
-**Product Model:**
-1. Create new model
-2. Name: `Product`, Reference: `products`
-3. Add fields:
-   - `Title` (Text, Required)
-   - `SKU` (Text, Required)
-   - `Slug` (Text, Required)
-   - `Description` (HTML)
-   - `Category` (Linked Content → Category)
-   - `Base Price` (Number, Required)
-   - `Featured Image` (Image, Required)
-   - `Variants` (Nested Content List - create ProductVariant schema)
-4. Save
+See `COMMERCETOOLS_INTEGRATION.md` for detailed product setup instructions.
+
+### Agility CMS Content Models (Optional)
+
+If you want to use Agility CMS for non-product content (blog posts, pages, etc.), you can create content models as needed. Products are handled entirely by commercetools.
 
 **ProductVariant Schema (nested):**
 When adding Variants field, create new schema with fields:
@@ -115,72 +97,59 @@ When adding Variants field, create new schema with fields:
 
 ---
 
-## Step 4: Add Demo Content (3 minutes)
+## Step 4: Add Demo Products in commercetools (10 minutes)
 
-### Create Sizes
+**Note:** Products are managed in commercetools Merchant Center, not Agility CMS.
 
-Go to Content → Sizes → New:
+### Option 1: Use Sample Data
 
-1. **Small**: Title: "Small", Code: "S"
-2. **Medium**: Title: "Medium", Code: "M"
-3. **Large**: Title: "Large", Code: "L"
+commercetools provides sample data. If your project includes sample products, they should already be available.
 
-### Create Category
+### Option 2: Create a Test Product
 
-Go to Content → Categories → New:
+1. Go to commercetools Merchant Center → **Products**
+2. Click **Create Product**
+3. Fill in:
+   - **Name**: "Test T-Shirt" (in your locale, e.g., English)
+   - **Slug**: "test-tshirt" (used for URL routing)
+   - **Description**: "A test product"
+   - **Product Type**: Select or create a product type
+   - **Variants**: Add variants with:
+     - SKU: "TSHIRT-001-NAVY-M"
+     - Attributes: Color (Navy Blue), Size (M)
+     - Price: $24.99
+     - Images: Upload product images
+     - Stock: Set inventory quantity
 
-1. **Apparel**: Title: "Apparel"
+4. **Publish** the product
 
-### Create a Test Product
-
-Go to Content → Products → New:
-
-**Basic Info:**
-- Title: "Test T-Shirt"
-- SKU: "TSHIRT-001"
-- Slug: "test-tshirt"
-- Description: "A test product"
-- Category: Apparel
-- Base Price: 24.99
-- Featured Image: Upload any image
-
-**Add Variant (click Add Variant):**
-- Details: "Navy Blue, Medium"
-- Variant SKU: "TSHIRT-001-NAVY-M"
-- Color: "Navy Blue"
-- Color HEX: "#000080"
-- Size: Medium
-- Price: 24.99
-- Variant Image: Upload image
-- Stock Quantity: 10
-
-Save and **Publish**!
+See `COMMERCETOOLS_INTEGRATION.md` for detailed product creation instructions.
 
 ---
 
 ## Step 5: Test Your Store (1 minute)
 
 1. **View Products**: http://localhost:3000/products
-2. **Click on Test T-Shirt**
+   - Should show products from commercetools
+2. **Click on any product** (e.g., `/products/classic-coffee-cup`)
 3. **Add to Cart**
 4. **Click Cart Icon** (top right)
-5. **Checkout**
-6. **Use Test Card**: 4242 4242 4242 4242
-   - Expiry: Any future date
-   - CVC: Any 3 digits
-   - ZIP: Any 5 digits
-7. **Complete Payment**
-8. **See Success Page**
+5. **Proceed to Checkout**
+   - Creates cart and order in commercetools
+6. **See Success Page**
+   - Order details retrieved from commercetools
+
+**Note:** Payment processing needs to be configured separately. The checkout creates orders in commercetools, but payment integration requires additional setup.
 
 ---
 
 ## ✅ You're Done!
 
 Your e-commerce site is now running with:
-- ✅ Product catalog
+- ✅ Product catalog (from commercetools)
 - ✅ Shopping cart
-- ✅ Stripe checkout
-- ✅ Order confirmation
+- ✅ commercetools checkout
+- ✅ Order creation and confirmation
 
 ---
 
@@ -188,7 +157,7 @@ Your e-commerce site is now running with:
 
 ### Add More Products
 
-Create more products following the same pattern as Step 4.
+Create more products in commercetools Merchant Center following the same pattern as Step 4. Products are managed entirely in commercetools.
 
 ### Customize Styles
 
@@ -214,6 +183,8 @@ Edit Tailwind classes in components:
 
 3. Update environment variables in Vercel:
    - Add all values from `.env.local`
+   - **Important**: Include all `CTP_*` commercetools variables
+   - Include all `AGILITY_*` CMS variables
 
 4. Set up production webhook in Stripe Dashboard:
    - Endpoint: `https://yourdomain.com/api/webhooks/stripe`
@@ -234,13 +205,14 @@ Edit Tailwind classes in components:
 - Check browser console for JavaScript errors
 - Refresh page
 
-**Stripe errors?**
-- Verify API keys are correct (test mode keys start with `pk_test_` and `sk_test_`)
-- Make sure webhook is running: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
-- Check Stripe Dashboard for errors
+**commercetools errors?**
+- Verify `CTP_*` credentials are correct in `.env.local`
+- Check commercetools Merchant Center for product/order issues
+- Test API connection: `curl http://localhost:3000/api/products?limit=1`
+- Check browser Network tab for API errors
 
 **Images not loading?**
-- Verify images are uploaded in Agility CMS
+- Verify images are configured in commercetools products
 - Check browser Network tab for 404 errors
 - Clear Next.js cache: `rm -rf .next && npm run dev`
 
@@ -249,33 +221,35 @@ Edit Tailwind classes in components:
 ## Getting Help
 
 1. Check **ECOMMERCE_README.md** for detailed docs
-2. Check **AGILITY_SETUP_GUIDE.md** for CMS setup
-3. Check **IMPLEMENTATION_SUMMARY.md** for overview
-4. Check browser console for errors
-5. Check Stripe Dashboard for payment issues
+2. Check **COMMERCETOOLS_INTEGRATION.md** for commercetools setup
+3. Check **AGILITY_SETUP_GUIDE.md** for CMS setup
+4. Check **IMPLEMENTATION_SUMMARY.md** for overview
+5. Check browser console for errors
+6. Check commercetools Merchant Center for product/order issues
 
 ---
 
-## Test Cards
+## Testing Products
 
-Stripe provides test cards for different scenarios:
+**Test Product API:**
+```bash
+# List products
+curl http://localhost:3000/api/products?limit=5
 
-- **Success**: 4242 4242 4242 4242
-- **Requires Authentication**: 4000 0025 0000 3155
-- **Declined**: 4000 0000 0000 9995
-- **Insufficient Funds**: 4000 0000 0000 9995
+# Get single product
+curl http://localhost:3000/api/products/classic-coffee-cup
+```
 
-More test cards: https://stripe.com/docs/testing
+**Test Checkout:**
+- Add products to cart in the UI
+- Proceed to checkout
+- Verify order creation in commercetools Merchant Center
 
 ---
 
-## Demo Products Template
+## Demo Products
 
-Want to add the full swag shop? See **AGILITY_SETUP_GUIDE.md Step 9** for complete product templates:
-- Classic Logo T-Shirt (3 variants)
-- Embroidered Baseball Cap (2 variants)
-- Premium Zip Hoodie (3 variants)
-- Comfort Crew Socks (2 variants)
+commercetools sample projects often include demo products. Check your commercetools Merchant Center for available products. You can also create your own products following the pattern in Step 4.
 
 ---
 

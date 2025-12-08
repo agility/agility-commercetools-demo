@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getContentList } from '@/lib/cms/getContentList'
+import { fetchCommercetoolsProducts } from '@/lib/commercetools/products'
 import type { IProduct } from '@/lib/types/IProduct'
 
 export async function GET(request: NextRequest) {
@@ -9,73 +9,78 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || 'default'
     const limit = parseInt(searchParams.get('limit') || '100', 10)
     const languageCode = searchParams.get('languageCode') || 'en-us'
-    const referenceName = searchParams.get('referenceName') || 'products'
+    const offset = parseInt(searchParams.get('offset') || '0', 10)
 
-    // Fetch products from Agility CMS
-    const productsResponse = await getContentList<IProduct>({
-      referenceName,
-      languageCode,
-      take: limit,
-    })
+    // Map language code to commercetools locale
+    const locale = languageCode.split('-')[0] || 'en'
 
-    let products = productsResponse.items
-
-    // Filter by category if specified
+    // Build where clause for commercetools
+    const where: string[] = []
     if (category && category !== 'all') {
-      products = products.filter((product) => {
-        const productCategory = product.fields.category?.fields?.name
-        return productCategory === category
-      })
+      // Assuming categories are stored as product type or custom attribute
+      // Adjust based on your commercetools setup
+      where.push(`categories(id="${category}")`)
     }
 
-    // Sort products based on sort parameter
+    // Build sort clause for commercetools
+    let sortClause: string[] = []
     switch (sort) {
       case 'price-low':
-        products.sort((a, b) => parseFloat(a.fields.basePrice) - parseFloat(b.fields.basePrice))
+        sortClause = ['price asc']
         break
       case 'price-high':
-        products.sort((a, b) => parseFloat(b.fields.basePrice) - parseFloat(a.fields.basePrice))
+        sortClause = ['price desc']
         break
       case 'name-az':
-        products.sort((a, b) => a.fields.title.localeCompare(b.fields.title))
+        sortClause = ['name.en asc']
         break
       case 'name-za':
-        products.sort((a, b) => b.fields.title.localeCompare(a.fields.title))
+        sortClause = ['name.en desc']
         break
       case 'newest':
-        // Sort by contentID descending (newer items typically have higher IDs)
-        products.sort((a, b) => b.contentID - a.contentID)
+        sortClause = ['createdAt desc']
         break
       default:
-        // Keep original order from CMS
+        // Default sort
         break
     }
 
-    // Format response data
-    const formattedProducts = products.map((product) => ({
-      id: product.contentID,
-      title: product.fields.title,
-      sku: product.fields.sku,
-      slug: product.fields.slug,
-      description: product.fields.description,
-      basePrice: product.fields.basePrice,
-      category: product.fields.category?.fields?.name || null,
-      featuredImage: product.fields.featuredImage
+    // Fetch products from commercetools
+    const productsResponse = await fetchCommercetoolsProducts({
+      limit,
+      offset,
+      where: where.length > 0 ? where : undefined,
+      sort: sortClause.length > 0 ? sortClause : undefined,
+      locale,
+    })
+
+    let products = productsResponse.results
+
+    // Format response data to match existing API structure
+    const formattedProducts = products.map((product: IProduct, index: number) => ({
+      id: product.sku || `product-${index}`, // Use SKU as ID or generate
+      title: product.title,
+      sku: product.sku,
+      slug: product.slug,
+      description: product.description,
+      basePrice: product.basePrice,
+      category: null, // Category handling may need adjustment based on commercetools setup
+      featuredImage: product.featuredImage
         ? {
-            url: product.fields.featuredImage.url,
-            label: product.fields.featuredImage.label,
-            width: product.fields.featuredImage.width,
-            height: product.fields.featuredImage.height,
+            url: product.featuredImage.url,
+            label: product.featuredImage.label,
+            width: product.featuredImage.width,
+            height: product.featuredImage.height,
           }
         : null,
-      variants: product.fields.variants || [],
+      variants: product.variants || [],
     }))
 
     return NextResponse.json(
       {
         success: true,
         total: formattedProducts.length,
-        totalCount: productsResponse.totalCount,
+        totalCount: productsResponse.total,
         products: formattedProducts,
       },
       {

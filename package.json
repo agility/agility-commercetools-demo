@@ -14,6 +14,8 @@
     "@agility/nextjs": "^15.0.7",
     "@ai-sdk/react": "^2.0.45",
     "@ai-sdk/ui-utils": "^1.2.11",
+    "@commercetools/platform-sdk": "^8.18.0",
+    "@commercetools/sdk-client-v2": "^3.0.0",
     "@headlessui/react": "^2.1.1",
     "@heroicons/react": "^2.1.4",
     "@next/third-parties": "^15.5.4",

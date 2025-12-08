@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getContentList } from '@/lib/cms/getContentList'
+import { fetchCommercetoolsProductBySlug } from '@/lib/commercetools/products'
 import type { IProduct } from '@/lib/types/IProduct'
 
 export async function GET(
@@ -10,19 +10,12 @@ export async function GET(
     const { slug } = await params
     const searchParams = request.nextUrl.searchParams
     const languageCode = searchParams.get('languageCode') || 'en-us'
-    const referenceName = searchParams.get('referenceName') || 'products'
 
-    // Fetch all products from Agility CMS
-    const productsResponse = await getContentList<IProduct>({
-      referenceName,
-      languageCode,
-      take: 100,
-    })
+    // Map language code to commercetools locale
+    const locale = languageCode.split('-')[0] || 'en'
 
-    // Find the product with matching slug
-    const product = productsResponse.items.find(
-      (p) => p.fields.slug === slug
-    )
+    // Fetch product from commercetools by slug
+    const product = await fetchCommercetoolsProductBySlug(slug, { locale })
 
     if (!product) {
       return NextResponse.json(
@@ -34,24 +27,24 @@ export async function GET(
       )
     }
 
-    // Format response data
+    // Format response data to match existing API structure
     const formattedProduct = {
-      id: product.contentID,
-      title: product.fields.title,
-      sku: product.fields.sku,
-      slug: product.fields.slug,
-      description: product.fields.description,
-      basePrice: product.fields.basePrice,
-      category: product.fields.category?.fields?.name || null,
-      featuredImage: product.fields.featuredImage
+      id: product.sku || product.slug,
+      title: product.title,
+      sku: product.sku,
+      slug: product.slug,
+      description: product.description,
+      basePrice: product.basePrice,
+      category: null, // Category handling may need adjustment based on commercetools setup
+      featuredImage: product.featuredImage
         ? {
-            url: product.fields.featuredImage.url,
-            label: product.fields.featuredImage.label,
-            width: product.fields.featuredImage.width,
-            height: product.fields.featuredImage.height,
+            url: product.featuredImage.url,
+            label: product.featuredImage.label,
+            width: product.featuredImage.width,
+            height: product.featuredImage.height,
           }
         : null,
-      variants: product.fields.variants || [],
+      variants: product.variants || [],
     }
 
     return NextResponse.json(

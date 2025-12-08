@@ -2,14 +2,14 @@
 
 ## Overview
 
-This Next.js application is a fully functional e-commerce site powered by Agility CMS and Stripe. It features product listings, variant selection, shopping cart, and checkout functionality.
+This Next.js application is a fully functional e-commerce site powered by Agility CMS for content and commercetools for e-commerce. It features product listings, variant selection, shopping cart, and checkout functionality.
 
 ## Architecture
 
 ### Technology Stack
 - **Frontend**: Next.js 15.5.3 with React 19, TypeScript
-- **CMS**: Agility CMS (headless)
-- **Payments**: Stripe Checkout
+- **CMS**: Agility CMS (headless) - for content management
+- **E-commerce Backend**: commercetools - for products, cart, and orders
 - **Styling**: Tailwind CSS v4
 - **Animations**: Motion (Framer Motion alternative)
 - **State**: React Context + localStorage
@@ -20,7 +20,7 @@ This Next.js application is a fully functional e-commerce site powered by Agilit
 - ✅ Shopping cart with persistent state
 - ✅ Variant selection (color, size)
 - ✅ Stock management
-- ✅ Stripe checkout integration
+- ✅ commercetools checkout integration
 - ✅ Responsive design with dark mode
 - ✅ SEO optimized
 - ✅ Agility CMS inline editing support
@@ -33,12 +33,12 @@ This Next.js application is a fully functional e-commerce site powered by Agilit
 src/
 ├── app/
 │   ├── api/
-│   │   ├── checkout/route.ts          # Create Stripe checkout sessions
+│   │   ├── checkout/route.ts          # Create commercetools checkout sessions
 │   │   ├── products/
 │   │   │   ├── route.ts               # Fetch all products
 │   │   │   └── [slug]/route.ts        # Fetch product by slug
 │   │   └── webhooks/
-│   │       └── stripe/route.ts        # Handle Stripe webhooks
+│   │       └── stripe/route.ts        # Handle payment webhooks (if configured)
 │   ├── products/
 │   │   ├── page.tsx                   # Product listing page
 │   │   ├── ProductsListingClient.tsx  # Client-side filtering/sorting
@@ -72,8 +72,10 @@ src/
 │   │   └── CartContext.tsx            # Legacy cart context (deprecated)
 │   ├── hooks/
 │   │   └── useCart.tsx                # Cart state management hook
-│   ├── stripe/
-│   │   └── client.ts                  # Stripe.js client configuration
+│   ├── commercetools/
+│   │   ├── client.ts                  # commercetools SDK client configuration
+│   │   ├── products.ts                # Product fetching utilities
+│   │   └── cart.ts                    # Cart and order management
 │   ├── utils/
 │   │   ├── currency.ts                # Price formatting utilities
 │   │   └── inventory.ts               # Stock management helpers
@@ -96,10 +98,10 @@ src/
 
 ### 1. Product Data Flow
 ```
-Agility CMS → API Route (/api/products) → Product Pages → Display
+commercetools → API Route (/api/products) → Product Pages → Display
 ```
 
-Products are fetched from Agility CMS via API routes, which format the data for consumption by React components.
+Products are fetched from commercetools via API routes, which format the data for consumption by React components. Agility CMS handles all other content (pages, components, blog posts, etc.).
 
 ### 2. Cart Flow
 ```
@@ -110,17 +112,17 @@ Cart state is managed by React Context and persisted to localStorage for persist
 
 ### 3. Checkout Flow
 ```
-Cart → Checkout Page → Stripe Checkout API → Stripe Hosted Checkout → Success/Cancel
+Cart → Checkout Page → commercetools Cart API → commercetools Order API → Success Page
 ```
 
-The checkout process creates a Stripe session and redirects to Stripe's hosted checkout page.
+The checkout process creates a cart in commercetools, adds line items, and creates an order. Payment processing should be integrated separately (commercetools supports various payment providers).
 
 ### 4. Order Completion Flow
 ```
-Stripe Payment → Webhook → /api/webhooks/stripe → Process Order → Confirmation
+commercetools Order → Order Details API → Success Page → Order Confirmation
 ```
 
-After successful payment, Stripe sends a webhook to confirm the order.
+After order creation, order details are retrieved from commercetools and displayed on the success page.
 
 ---
 
@@ -238,36 +240,55 @@ Fetch a single product by slug.
 ```
 
 ### POST /api/checkout
-Create a Stripe checkout session.
+Create a commercetools cart and order.
 
 **Request Body:**
 ```json
 {
   "items": [
     {
-      "id": "product-id",
-      "name": "Product Name",
-      "price": 29.99,
-      "quantity": 2,
-      "image": "https://..."
+      "productId": 123,
+      "variantSKU": "PROD-001-RED-L",
+      "product": { "slug": "product-slug", ... },
+      "variant": { ... },
+      "quantity": 2
     }
-  ]
+  ],
+  "customerId": "optional-customer-id",
+  "email": "customer@example.com",
+  "currency": "USD",
+  "country": "US"
 }
 ```
 
 **Response:**
 ```json
 {
-  "sessionId": "cs_test_...",
-  "url": "https://checkout.stripe.com/..."
+  "orderId": "order-id",
+  "orderNumber": "ORDER-123",
+  "cartId": "cart-id",
+  "totalPrice": {
+    "centAmount": 2999,
+    "currencyCode": "USD"
+  },
+  "url": "/checkout/success?order_id=..."
 }
 ```
 
-### POST /api/webhooks/stripe
-Handle Stripe webhook events (checkout.session.completed, payment_intent.succeeded).
+### GET /api/checkout/session?order_id=...
+Retrieve order details from commercetools.
 
-**Headers Required:**
-- `stripe-signature` - Webhook signature for verification
+**Response:**
+```json
+{
+  "orderId": "order-id",
+  "orderNumber": "ORDER-123",
+  "totalPrice": { "centAmount": 2999, "currencyCode": "USD" },
+  "lineItems": [...],
+  "orderState": "Open",
+  "paymentState": "Pending"
+}
+```
 
 ---
 
@@ -346,10 +367,13 @@ AGILITY_API_PREVIEW_KEY=your-preview-key
 AGILITY_LOCALES=en-us
 AGILITY_SITEMAP=website
 
-# Stripe
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# commercetools
+CTP_PROJECT_KEY=your-project-key
+CTP_CLIENT_ID=your-client-id
+CTP_CLIENT_SECRET=your-client-secret
+CTP_AUTH_URL=https://auth.us-east-2.aws.commercetools.com
+CTP_API_URL=https://api.us-east-2.aws.commercetools.com
+CTP_SCOPES=view_products:your-project-key manage_orders:your-project-key ...
 
 # Site Configuration
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
@@ -364,21 +388,26 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 npm run dev
 ```
 
-### 2. Test Stripe Webhooks (Local)
+### 2. Test commercetools Integration
 ```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
+# Test product API
+curl http://localhost:3000/api/products?limit=5
+
+# Test single product
+curl http://localhost:3000/api/products/product-slug
 ```
 
 ### 3. Build for Production
 ```bash
+npm run prebuild  # IMPORTANT: Rebuild redirect cache
 npm run build
 npm run start
 ```
 
-### 4. Test Payments
-Use Stripe test cards:
-- Success: `4242 4242 4242 4242`
-- Decline: `4000 0000 0000 0002`
+### 4. Test Checkout
+- Add products to cart in the UI
+- Proceed to checkout
+- Verify order creation in commercetools Merchant Center
 
 ---
 
@@ -440,13 +469,16 @@ NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 
 ### Products not loading
 **Check:**
-- Agility CMS content is published
-- API keys are correct in `.env.local`
-- Network tab shows successful API calls
-- Products have required fields (title, SKU, slug, variants)
+- commercetools credentials are correct in `.env.local` (CTP_* variables)
+- Products exist in commercetools Merchant Center
+- Network tab shows successful API calls to commercetools
+- Products have required fields (slug, SKU, variants)
 
 **Solution:**
 ```bash
+# Verify commercetools connection
+curl http://localhost:3000/api/products?limit=1
+
 # Clear Next.js cache
 rm -rf .next
 npm run dev
@@ -464,33 +496,21 @@ npm run dev
 localStorage.removeItem('agility-commerce-cart')
 ```
 
-### Stripe checkout fails
+### commercetools checkout fails
 **Check:**
-- API keys are correct
-- Using test mode keys for development
-- Items array has required fields (id, name, price, quantity)
-- NEXT_PUBLIC_SITE_URL is set correctly
+- commercetools credentials are correct (CTP_* variables)
+- Cart items have valid SKUs that exist in commercetools
+- Products exist in commercetools
+- Customer ID/email is valid (if provided)
 
 **Solution:**
 ```bash
-# Test API directly
+# Test checkout API directly
 curl -X POST http://localhost:3000/api/checkout \
   -H "Content-Type: application/json" \
-  -d '{"items":[{"id":"1","name":"Test","price":10,"quantity":1}]}'
-```
+  -d '{"items":[{"productId":123,"variantSKU":"SKU-001","product":{"slug":"product-slug"},"variant":{},"quantity":1}]}'
 
-### Webhooks not working
-**Check:**
-- Stripe CLI is running for local dev
-- Webhook secret is correct
-- Endpoint is publicly accessible (production)
-- Events are selected in Stripe Dashboard
-
-**Solution:**
-```bash
-# View webhook logs in Stripe Dashboard
-# Or use Stripe CLI:
-stripe logs tail
+# Check commercetools API logs in Merchant Center
 ```
 
 ---
@@ -548,10 +568,11 @@ headers: {
 ## Customization
 
 ### Adding New Product Fields
-1. Update Agility CMS Product model
+1. Update product structure in commercetools Merchant Center
 2. Update `IProduct` interface in `src/lib/types/IProduct.ts`
-3. Update API response in `/api/products/route.ts`
-4. Update UI components to display new fields
+3. Update product transformation in `src/lib/commercetools/products.ts`
+4. Update API response in `/api/products/route.ts` if needed
+5. Update UI components to display new fields
 
 ### Styling Changes
 1. Update Tailwind classes in components
@@ -560,11 +581,11 @@ headers: {
 4. Modify animations in Motion components
 
 ### Adding Payment Methods
-Stripe Checkout supports multiple payment methods:
-```typescript
-// In /api/checkout/route.ts
-payment_method_types: ['card', 'apple_pay', 'google_pay']
-```
+commercetools supports various payment providers. Integrate payment processing by:
+1. Adding payment method to commercetools project
+2. Creating payment transactions in commercetools
+3. Updating order payment state
+4. See commercetools payment documentation: https://docs.commercetools.com/api/projects/payments
 
 ---
 
@@ -572,7 +593,8 @@ payment_method_types: ['card', 'apple_pay', 'google_pay']
 
 - [Agility CMS Docs](https://help.agilitycms.com)
 - [Next.js Docs](https://nextjs.org/docs)
-- [Stripe Docs](https://stripe.com/docs)
+- [commercetools Docs](https://docs.commercetools.com)
+- [commercetools API Reference](https://docs.commercetools.com/api)
 - [Tailwind CSS Docs](https://tailwindcss.com/docs)
 - [Motion Docs](https://motion.dev)
 
@@ -581,9 +603,9 @@ payment_method_types: ['card', 'apple_pay', 'google_pay']
 ## Support
 
 For issues or questions:
-1. Check this README and AGILITY_SETUP_GUIDE.md
+1. Check this README and COMMERCETOOLS_INTEGRATION.md
 2. Review browser console for errors
-3. Check Stripe Dashboard for payment issues
+3. Check commercetools Merchant Center for product/order issues
 4. Review Agility CMS content structure
 5. Contact support for your respective services
 

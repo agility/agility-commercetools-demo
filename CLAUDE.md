@@ -1,4 +1,4 @@
-# Agility Demo Site 2025 - Claude Code Project Context
+# Agility Demo Site 2025 - Cursor AI Project Context
 
 ## Project Overview
 
@@ -6,12 +6,13 @@ This is an Agility CMS-powered Next.js demo site built with React 19, TypeScript
 
 ## Key Technologies
 
-- **Framework**: Next.js 15.3.5 with App Router and TypeScript
-- **Frontend**: React 19.1.0 with hooks for state management
+- **Framework**: Next.js 15.5.3 with App Router and TypeScript
+- **Frontend**: React 19.1.1 with hooks for state management
 - **Styling**: Tailwind CSS v4 (CSS-file based, no config file)
 - **CMS**: Agility CMS (@agility/nextjs 15.0.7)
+- **E-commerce Backend**: commercetools (@commercetools/sdk-client-v2, @commercetools/platform-sdk)
 - **Animations**: Motion (Framer Motion alternative) 12.23.0
-- **Icons**: Heroicons v2, React Icons
+- **Icons**: Heroicons v2, React Icons, Lucide React, Tabler Icons
 - **Development**: Turbopack dev server, ESLint, Prettier
 
 ## Project Structure
@@ -27,6 +28,10 @@ src/
 ├── lib/                   # Utilities and CMS helpers
 │   ├── cms/               # Agility CMS API functions and SDK
 │   ├── cms-content/       # Content processing utilities
+│   ├── commercetools/     # commercetools SDK client and utilities
+│   │   ├── client.ts      # commercetools client configuration
+│   │   ├── products.ts    # Product fetching and transformation
+│   │   └── cart.ts        # Cart and order management
 │   └── types/             # TypeScript definitions
 └── public/                # Static assets organized by category
 ```
@@ -34,6 +39,7 @@ src/
 ## Development Commands
 
 - `npm run dev` - Start development server with Turbopack
+- `npm run prebuild` - Rebuild redirect cache (IMPORTANT: run before build)
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
@@ -48,11 +54,20 @@ src/
 
 ## CMS Integration
 
-The project uses Agility CMS as a headless CMS:
+The project uses **Agility CMS** for content management and **commercetools** for e-commerce:
 
+**Agility CMS:**
 - Content fetching via `@agility/nextjs` SDK
-- Page routing handled by Agility's dynamic routing
+- Page routing handled by Agility's dynamic routing (except `/products/[slug]` routes)
 - Content items are strongly typed with TypeScript interfaces
+- Handles all non-product content (pages, components, blog posts, etc.)
+
+**commercetools:**
+- Product catalog management
+- Cart and order management
+- Product data fetched via API routes (`/api/products`)
+- Product routes (`/products/[slug]`) bypass Agility CMS routing
+- See `COMMERCETOOLS_INTEGRATION.md` for full details
 
 ## Code Style
 
@@ -217,11 +232,62 @@ interface IFeaturedProducts {
 - Fade animations from specific directions
 - Calculate delays based on item index for visual interest
 
-## Development Notes for Claude Code
+## Development Notes for Cursor AI
 
+### Cursor-Specific Workflows
+
+**Code Editing:**
+- Use Cursor's inline editing capabilities for quick changes
+- Leverage Cursor's multi-file editing for related changes
+- Use Cursor's chat for architectural questions and code generation
+- Take advantage of Cursor's codebase understanding for context-aware suggestions
+
+**File Operations:**
+- Use Cursor's file explorer for navigation
+- Leverage Cursor's search across files for finding patterns
+- Use Cursor's git integration for version control
+- Take advantage of Cursor's terminal integration for running commands
+
+**Best Practices:**
 - Always check existing component patterns before creating new ones
 - Use the established TypeScript interfaces for consistency
 - Follow the Agility CMS SDK patterns for content fetching
 - Reference Tailwind CSS v4 documentation at https://tailwindcss.com/docs
 - Maintain accessibility standards with Heroicons and semantic HTML
 - Test responsiveness with Tailwind's mobile-first approach
+- **For commercetools**: Always use the utilities in `src/lib/commercetools/` rather than direct SDK calls
+- **For products**: Use `/api/products` endpoints which handle commercetools integration
+- **For routing**: Product routes (`/products/[slug]`) bypass Agility CMS - see `src/middleware.ts`
+
+### commercetools Integration Notes
+
+**Product Data:**
+- Products are fetched from commercetools, not Agility CMS
+- Product routes (`/products/[slug]`) are handled specially in middleware
+- Use `fetchCommercetoolsProducts()` and `fetchCommercetoolsProductBySlug()` from `src/lib/commercetools/products.ts`
+- Product transformation utilities convert commercetools format to `IProduct` interface
+
+**Checkout Flow:**
+- Cart management uses React Context + localStorage (client-side)
+- Checkout creates commercetools carts and orders via `/api/checkout`
+- Order details retrieved via `/api/checkout/session?order_id=...`
+- Payment processing should be integrated separately (commercetools supports various payment providers)
+
+**Environment Variables:**
+- Use `CTP_` prefix for all commercetools variables (as provided by commercetools)
+- Required: `CTP_PROJECT_KEY`, `CTP_CLIENT_ID`, `CTP_CLIENT_SECRET`
+- Optional: `CTP_AUTH_URL`, `CTP_API_URL`, `CTP_SCOPES`
+- See `COMMERCETOOLS_INTEGRATION.md` for full setup guide
+
+### Agility CMS Integration Notes
+
+**Content Management:**
+- Agility CMS handles all non-product content (pages, components, blog posts, etc.)
+- Product-related components (ProductListing, ProductDetails) can still be used in Agility pages
+- These components fetch product data from commercetools via API routes
+- Routing: Most routes go through Agility CMS, except `/products/[slug]` which is handled directly
+
+**Component Registration:**
+- All Agility components must be registered in `src/components/agility-components/index.ts`
+- Follow the existing pattern for component registration
+- Use `UnloadedModuleProps` interface for component props
