@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { getCart, createOrderFromCart } from '@/lib/commercetools/cart'
+import { getCart, createOrderFromCart, addPaymentToCart } from '@/lib/commercetools/cart'
 import { createPayment, addTransactionToPayment } from '@/lib/commercetools/payment'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         )
 
         // Step 3: Add successful transaction to payment
-        await addTransactionToPayment(
+        const paymentWithTransaction = await addTransactionToPayment(
           payment.id,
           payment.version,
           {
@@ -87,12 +87,26 @@ export async function POST(request: NextRequest) {
           }
         )
 
-        // Step 4: Create order from cart with payment reference
-        const order = await createOrderFromCart(cart.id, cart.version, {
-          paymentId: payment.id,
-        })
+        // Step 4: Add payment to cart (required before creating order)
+        const cartWithPayment = await addPaymentToCart(
+          cart.id,
+          cart.version,
+          paymentWithTransaction.id
+        )
 
-        // Order created successfully
+        // Step 5: Create order from cart
+        const order = await createOrderFromCart(cartWithPayment.id, cartWithPayment.version)
+
+        // Order created successfully - log key details for debugging
+        console.error('[Webhook] Order created:', {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          orderState: order.orderState,
+          paymentState: order.paymentState,
+          paymentId: paymentWithTransaction.id,
+          stripeSessionId: session.id,
+          customerEmail: session.customer_details?.email,
+        })
 
         // TODO: Additional post-purchase actions:
         // - Send confirmation email
@@ -100,10 +114,17 @@ export async function POST(request: NextRequest) {
         // - Trigger fulfillment process
         // - Update analytics/tracking
       } catch (error) {
-        console.error('Error processing checkout completion:', error)
+        console.error('[Webhook] Error processing checkout completion:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          cartId,
+          cartVersion,
+          stripeSessionId: session.id,
+        })
         // Log error but still return 200 to acknowledge webhook
         // Stripe will retry if we return an error status
         // You may want to implement retry logic or error notification here
+        throw error // Re-throw to see in logs, but webhook will still return 200 below
       }
     }
 

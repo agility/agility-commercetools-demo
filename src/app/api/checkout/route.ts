@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const cartWithAddress = await setShippingAddress(
       updatedCart.id,
       updatedCart.version,
-      { country }
+      { country: country }
     )
 
     // Create order from cart

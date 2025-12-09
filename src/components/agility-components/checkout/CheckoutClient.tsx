@@ -67,14 +67,6 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
     }
   }, [cart.items.length, router, cartLoaded])
 
-  // Check if user is authenticated (has customer ID in session)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const customerId = sessionStorage.getItem("customer_id")
-      // If authenticated, you might want to pre-fill email from customer data
-      // For now, we'll just note that customerId exists
-    }
-  }, [])
 
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof ShippingAddress, string>> = {}
@@ -129,9 +121,6 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
     setIsSubmitting(true)
 
     try {
-      const customerId =
-        typeof window !== "undefined" ? sessionStorage.getItem("customer_id") : null
-
       // Create Stripe checkout session
       const response = await fetch("/api/checkout/stripe-session", {
         method: "POST",
@@ -140,7 +129,6 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
         },
         body: JSON.stringify({
           items: cart.items,
-          customerId: customerId || undefined,
           email: shippingAddress.email,
           shippingAddress: {
             firstName: shippingAddress.firstName,

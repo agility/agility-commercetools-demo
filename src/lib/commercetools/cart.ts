@@ -299,6 +299,44 @@ export async function setShippingMethod(
 }
 
 /**
+ * Add payment to a cart
+ * Required before creating an order with payment
+ */
+export async function addPaymentToCart(
+  cartId: string,
+  cartVersion: number,
+  paymentId: string
+): Promise<Cart> {
+  const apiRoot = getCommercetoolsApiRoot()
+
+  try {
+    const response = await apiRoot
+      .carts()
+      .withId({ ID: cartId })
+      .post({
+        body: {
+          version: cartVersion,
+          actions: [
+            {
+              action: 'addPayment',
+              payment: {
+                typeId: 'payment',
+                id: paymentId,
+              },
+            },
+          ],
+        },
+      })
+      .execute()
+
+    return response.body
+  } catch (error) {
+    console.error('Error adding payment to cart:', error)
+    throw error
+  }
+}
+
+/**
  * Create an order from a cart
  * Optionally include payment information
  */
@@ -307,7 +345,6 @@ export async function createOrderFromCart(
   cartVersion: number,
   options?: {
     orderNumber?: string
-    paymentId?: string // commercetools payment ID
   }
 ) {
   const apiRoot = getCommercetoolsApiRoot()
@@ -319,12 +356,6 @@ export async function createOrderFromCart(
 
   if (options?.orderNumber) {
     orderDraft.orderNumber = options.orderNumber
-  }
-
-  // Add payment if provided
-  if (options?.paymentId) {
-    orderDraft.paymentState = 'Paid'
-    // Note: commercetools will automatically link payment if payment transactions are set up correctly
   }
 
   try {

@@ -190,7 +190,6 @@ All components must be registered in `src/components/agility-components/index.ts
 - **Checkout** - Checkout page component
 - **CheckoutSuccess** - Order success page
 - **CheckoutCancel** - Order cancellation page
-- **AccountOverview** - Customer account dashboard
 
 **Content Display:**
 - **PostListing/PostDetails** - Blog post components

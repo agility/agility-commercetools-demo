@@ -25,7 +25,6 @@ import { ProductDetails } from "./product-details";
 import { Checkout } from "./checkout/Checkout.server";
 import { CheckoutSuccess } from "./checkout-success/CheckoutSuccess.server";
 import { CheckoutCancel } from "./checkout-cancel/CheckoutCancel.server";
-import { AccountOverview } from "./account-overview/AccountOverview.server";
 import { FeaturedProducts } from "./featured-products/FeaturedProducts.server";
 
 
@@ -58,7 +57,6 @@ const allModules = [
 	, { name: "Checkout", module: Checkout }
 	, { name: "CheckoutSuccess", module: CheckoutSuccess }
 	, { name: "CheckoutCancel", module: CheckoutCancel }
-	, { name: "AccountOverview", module: AccountOverview }
 	, { name: "FeaturedProducts", module: FeaturedProducts }
 ];
 

@@ -23,8 +23,7 @@ function CheckoutSuccessContent({
   const { clearCart } = useCart()
   const searchParams = useSearchParams()
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [sessionData, setSessionData] = useState<any>(null)
-  const [portalUrl, setPortalUrl] = useState<string | null>(null)
+  const [orderData, setOrderData] = useState<any>(null)
 
   useEffect(() => {
     // Clear cart on successful checkout
@@ -34,52 +33,21 @@ function CheckoutSuccessContent({
     const id = searchParams.get("session_id")
     setSessionId(id)
 
-    // Fetch session details to check if account was created
+    // Fetch order details if session ID exists
     if (id) {
-      fetchSessionDetails(id)
+      fetchOrderDetails(id)
     }
   }, [clearCart, searchParams])
 
-  const fetchSessionDetails = async (id: string) => {
+  const fetchOrderDetails = async (id: string) => {
     try {
       const response = await fetch(`/api/checkout/session?session_id=${id}`)
       const data = await response.json()
       if (response.ok) {
-        setSessionData(data)
-
-        // Store customer ID in session storage
-        if (data.customerId && typeof window !== 'undefined') {
-          sessionStorage.setItem("customer_id", data.customerId)
-          console.log("[Checkout Success] Stored customer ID in session:", data.customerId)
-
-          // Generate portal link for order tracking
-          generatePortalLink(data.customerId, id)
-        }
+        setOrderData(data)
       }
     } catch (error) {
-      console.error("Error fetching session details:", error)
-    }
-  }
-
-  const generatePortalLink = async (customerId: string, sessionId: string) => {
-    try {
-      const response = await fetch("/api/customer-portal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId,
-          returnUrl: typeof window !== 'undefined'
-            ? `${window.location.origin}/checkout/success?session_id=${sessionId}`
-            : undefined
-        })
-      })
-
-      const data = await response.json()
-      if (response.ok && data.url) {
-        setPortalUrl(data.url)
-      }
-    } catch (error) {
-      console.error("Error generating portal link:", error)
+      console.error("Error fetching order details:", error)
     }
   }
 
@@ -131,7 +99,13 @@ function CheckoutSuccessContent({
               {description}
             </p>
 
-            {sessionId && (
+            {orderData?.orderNumber && (
+              <div className="mb-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
+                <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">Order Number</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{orderData.orderNumber}</p>
+              </div>
+            )}
+            {sessionId && !orderData?.orderNumber && (
               <div className="mb-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
                 <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">Order Reference</p>
                 <p className="break-all text-xs font-mono text-gray-700 dark:text-gray-300">{sessionId}</p>
@@ -145,36 +119,6 @@ function CheckoutSuccessContent({
               </p>
             </div>
 
-            {/* Track Your Order Section */}
-            {portalUrl && (
-              <div className="mb-6 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20">
-                <h3 className="mb-2 font-semibold text-purple-900 dark:text-purple-100">
-                  Track Your Order
-                </h3>
-                <p className="mb-3 text-sm text-purple-800 dark:text-purple-300">
-                  View your order history, track shipments, and manage your account.
-                </p>
-                <a
-                  href={portalUrl}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-purple-700 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-200"
-                >
-                  Go to Customer Portal
-                  <svg
-                    className="size-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14 5l7 7m0 0l-7 7m7-7H3"
-                    />
-                  </svg>
-                </a>
-              </div>
-            )}
 
 
 

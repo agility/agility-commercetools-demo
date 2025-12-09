@@ -97,7 +97,16 @@ CTP_CLIENT_ID=your-client-id
 CTP_CLIENT_SECRET=your-client-secret
 CTP_AUTH_URL=https://auth.us-east-2.aws.commercetools.com
 CTP_API_URL=https://api.us-east-2.aws.commercetools.com
-CTP_SCOPES=view_products:your-project-key manage_orders:your-project-key manage_customers:your-project-key manage_payments:your-project-key manage_carts:your-project-key
+
+# ⚠️ IMPORTANT: Configure scopes in commercetools Merchant Center, not here!
+# Required scopes for your API client:
+# - view_products:{projectKey}
+# - manage_orders:{projectKey}
+# - manage_customers:{projectKey}
+# - manage_payments:{projectKey}  ← REQUIRED for checkout
+# - manage_carts:{projectKey}
+#
+# To add scopes: Merchant Center → Settings → Developer settings → Your API client → Edit → Add scopes
 
 # Stripe (Required for checkout)
 STRIPE_SECRET_KEY=sk_test_...
@@ -168,7 +177,6 @@ This project includes comprehensive documentation:
 
 - **[QUICK_START.md](./QUICK_START.md)** - Get running in 15 minutes
 - **[AGILITY_SETUP_GUIDE.md](./AGILITY_SETUP_GUIDE.md)** - Complete CMS setup guide
-- **[ACCOUNT_SETUP.md](./ACCOUNT_SETUP.md)** - Account setup instructions
 
 ### Additional Docs
 
@@ -282,7 +290,15 @@ The middleware (`src/middleware.ts`) handles:
 
 1. ✅ Run `npm run prebuild` to rebuild redirect cache
 2. ✅ Set all environment variables in your hosting platform
-3. ✅ Configure commercetools API credentials
+3. ✅ **Configure commercetools API client scopes** (CRITICAL):
+   - Go to commercetools Merchant Center → Settings → Developer settings
+   - Edit your API client
+   - Ensure these scopes are enabled:
+     - `view_products:{projectKey}`
+     - `manage_orders:{projectKey}`
+     - `manage_customers:{projectKey}`
+     - `manage_payments:{projectKey}` ← **Required for checkout**
+     - `manage_carts:{projectKey}`
 4. ✅ Configure Stripe API keys and webhook endpoint
 5. ✅ Set up PostHog project (if using analytics)
 6. ✅ Configure Agility CMS preview URLs
