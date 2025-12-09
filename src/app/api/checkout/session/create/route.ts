@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
-import { createCart, addLineItemsToCart } from "@/lib/commercetools/cart"
+import { createCart, addLineItemsToCart, setShippingAddress } from "@/lib/commercetools/cart"
 import type { ICartItem } from "@/lib/types/ICart"
 
 interface CreateCheckoutSessionRequestBody {
@@ -79,6 +79,21 @@ export async function POST(request: NextRequest) {
       cart.version
     )
 
+    // Step 2.5: Set minimal shipping address (country only)
+    // commercetools Checkout SDK will collect the full address from the user
+    // We only set the country here as a minimal requirement for the checkout session API
+    // The commercetools Checkout UI will handle:
+    // - Full address collection (street, city, state, postal code)
+    // - Shipping method selection
+    // - Tax calculation based on full address
+    // - Payment processing
+    // - Order creation
+    const cartWithAddress = await setShippingAddress(
+      updatedCart.id,
+      updatedCart.version,
+      country
+    )
+
     // Step 3: Get auth token for checkout session API
     // Note: The checkout session API uses a different authentication endpoint
     const authUrl = env.getOptionalByKey("CTP_AUTH_URL") || "https://auth.europe-west1.gcp.commercetools.com"
@@ -103,6 +118,11 @@ export async function POST(request: NextRequest) {
     const accessToken = authData.access_token
 
     // Step 4: Create checkout session
+    // The checkout session will handle:
+    // - Payment processing (via configured payment connectors)
+    // - Order creation AFTER successful payment (best practice)
+    // - Handling edge cases (multiple payments, unreachable redirects, etc.)
+    // Reference: https://docs.commercetools.com/foundry/best-practice-guides/standard-checkout-flow
     const sessionUrl = `https://session.${region}.commercetools.com/${projectKey}/sessions`
     const sessionResponse = await fetch(sessionUrl, {
       method: "POST",
@@ -113,7 +133,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         cart: {
           cartRef: {
-            id: updatedCart.id,
+            id: finalCart.id,
           },
         },
         metadata: {
@@ -124,6 +144,15 @@ export async function POST(request: NextRequest) {
 
     if (!sessionResponse.ok) {
       const errorText = await sessionResponse.text()
+      console.error('Checkout session creation failed:', {
+        status: sessionResponse.status,
+        statusText: sessionResponse.statusText,
+        error: errorText,
+        cartId: cartWithAddress.id,
+        cartVersion: cartWithAddress.version,
+        hasShippingAddress: !!cartWithAddress.shippingAddress,
+        shippingAddress: cartWithAddress.shippingAddress,
+      })
       throw new Error(`Failed to create checkout session: ${errorText}`)
     }
 
@@ -133,7 +162,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         sessionId: sessionData.id,
-        cartId: updatedCart.id,
+        cartId: cartWithAddress.id,
         region: region,
         projectKey: projectKey,
       },

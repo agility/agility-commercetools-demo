@@ -9,9 +9,10 @@ import { getImageDimensions } from "@/lib/utils/imageOptimization"
 
 interface CartLineItemProps {
   item: ICartItem
+  showControls?: boolean // If false, hides quantity controls and remove button
 }
 
-export function CartLineItem({ item }: CartLineItemProps) {
+export function CartLineItem({ item, showControls = true }: CartLineItemProps) {
   const { updateQuantity, removeItem } = useCart()
   const lineTotal = item.variant.price * item.quantity
 
@@ -95,37 +96,45 @@ export function CartLineItem({ item }: CartLineItemProps) {
           </div>
 
           {/* Remove Button */}
-          <button
-            onClick={handleRemove}
-            className="text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-            aria-label="Remove item"
-          >
-            <XMarkIcon className="size-5" />
-          </button>
+          {showControls && (
+            <button
+              onClick={handleRemove}
+              className="text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+              aria-label="Remove item"
+            >
+              <XMarkIcon className="size-5" />
+            </button>
+          )}
         </div>
 
         {/* Quantity and Price */}
         <div className="mt-2 flex items-center justify-between">
           {/* Quantity Selector */}
-          <div className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600">
-            <button
-              onClick={handleDecrease}
-              className="p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              aria-label="Decrease quantity"
-            >
-              <MinusIcon className="size-4" />
-            </button>
-            <span className="min-w-[2ch] text-center text-sm font-medium text-gray-900 dark:text-white">
-              {item.quantity}
+          {showControls ? (
+            <div className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600">
+              <button
+                onClick={handleDecrease}
+                className="p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                aria-label="Decrease quantity"
+              >
+                <MinusIcon className="size-4" />
+              </button>
+              <span className="min-w-[2ch] text-center text-sm font-medium text-gray-900 dark:text-white">
+                {item.quantity}
+              </span>
+              <button
+                onClick={handleIncrease}
+                className="p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                aria-label="Increase quantity"
+              >
+                <PlusIcon className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Qty: {item.quantity}
             </span>
-            <button
-              onClick={handleIncrease}
-              className="p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              aria-label="Increase quantity"
-            >
-              <PlusIcon className="size-4" />
-            </button>
-          </div>
+          )}
 
           {/* Line Total */}
           <p className="text-sm font-semibold text-gray-900 dark:text-white">

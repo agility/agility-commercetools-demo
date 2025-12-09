@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { getCart, createOrderFromCart } from '@/lib/commercetools/cart'
+import { createPayment, addTransactionToPayment } from '@/lib/commercetools/payment'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-09-30.clover',
@@ -42,46 +44,77 @@ export async function POST(request: NextRequest) {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
 
-      // Log order details
-      console.log('Order completed:', {
-        sessionId: session.id,
-        customerId: session.customer,
-        customerEmail: session.customer_details?.email,
-        amountTotal: session.amount_total,
-        currency: session.currency,
-        paymentStatus: session.payment_status,
-        metadata: session.metadata,
-        timestamp: new Date().toISOString(),
-      })
+      // Extract commercetools cart info from metadata
+      const cartId = session.metadata?.commercetools_cart_id
+      const cartVersion = session.metadata?.commercetools_cart_version
+        ? parseInt(session.metadata.commercetools_cart_version)
+        : undefined
+      const commercetoolsCustomerId = session.metadata?.commercetools_customer_id || undefined
 
-      // Parse order items from metadata if available
-      if (session.metadata?.orderItems) {
-        try {
-          const orderItems = JSON.parse(session.metadata.orderItems)
-          console.log('Order items:', orderItems)
-        } catch (err) {
-          console.error('Failed to parse order items from metadata:', err)
-        }
+      if (!cartId || !cartVersion) {
+        console.error('Missing commercetools cart information in Stripe session metadata', {
+          sessionId: session.id,
+          metadata: session.metadata,
+        })
+        // Still return 200 to acknowledge webhook, but log error
+        return NextResponse.json({ received: true }, { status: 200 })
       }
 
-      // TODO: Add your post-purchase logic here:
-      // - Save order to database
-      // - Send confirmation email
-      // - Update inventory
-      // - Trigger fulfillment process
-      // - Update customer records
+      try {
+        // Step 1: Get the cart to verify it exists and get latest version
+        const cart = await getCart(cartId)
+
+        // Step 2: Create payment in commercetools
+        const payment = await createPayment(
+          session.amount_total || 0,
+          session.currency?.toUpperCase() || 'USD',
+          'Stripe',
+          'stripe',
+          session.payment_intent as string, // Stripe payment intent ID
+          commercetoolsCustomerId
+        )
+
+        // Step 3: Add successful transaction to payment
+        await addTransactionToPayment(
+          payment.id,
+          payment.version,
+          {
+            type: 'Charge',
+            amount: session.amount_total || 0,
+            currency: session.currency?.toUpperCase() || 'USD',
+            state: 'Success',
+            interactionId: session.payment_intent as string,
+          }
+        )
+
+        // Step 4: Create order from cart with payment reference
+        const order = await createOrderFromCart(cart.id, cart.version, {
+          paymentId: payment.id,
+        })
+
+        // Order created successfully
+
+        // TODO: Additional post-purchase actions:
+        // - Send confirmation email
+        // - Update inventory (if not handled automatically by commercetools)
+        // - Trigger fulfillment process
+        // - Update analytics/tracking
+      } catch (error) {
+        console.error('Error processing checkout completion:', error)
+        // Log error but still return 200 to acknowledge webhook
+        // Stripe will retry if we return an error status
+        // You may want to implement retry logic or error notification here
+      }
     }
 
-    // Handle other event types if needed
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        console.log('Payment intent succeeded:', event.data.object.id)
-        break
-      case 'payment_intent.payment_failed':
-        console.log('Payment intent failed:', event.data.object.id)
-        break
-      default:
-        console.log('Unhandled event type:', event.type)
+    // Handle payment_intent events (backup handling)
+    if (event.type === 'payment_intent.succeeded') {
+      // Note: checkout.session.completed should handle order creation,
+      // but this can be used as a backup or for additional processing
+    }
+
+    if (event.type === 'payment_intent.payment_failed') {
+      // TODO: Handle failed payment (notify customer, update order status, etc.)
     }
 
     // Return a 200 response to acknowledge receipt of the event

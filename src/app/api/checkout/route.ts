@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import type { ICartItem } from "@/lib/types/ICart"
-import { createCart, addLineItemsToCart, createOrderFromCart } from "@/lib/commercetools/cart"
+import { createCart, addLineItemsToCart, createOrderFromCart, setShippingAddress } from "@/lib/commercetools/cart"
 import { fetchCommercetoolsProductBySlug } from "@/lib/commercetools/products"
 
 interface CheckoutRequestBody {
@@ -62,19 +62,27 @@ export async function POST(request: NextRequest) {
       cart.version
     )
 
+    // Set shipping address (required before creating order)
+    // commercetools requires a shipping address for tax calculation and shipping method determination
+    const cartWithAddress = await setShippingAddress(
+      updatedCart.id,
+      updatedCart.version,
+      country
+    )
+
     // Create order from cart
     // Note: In a real implementation, you might want to handle payment first
     // before creating the order. This is a simplified flow.
     const order = await createOrderFromCart(
-      updatedCart.id,
-      updatedCart.version
+      cartWithAddress.id,
+      cartWithAddress.version
     )
 
     return NextResponse.json(
       {
         orderId: order.id,
         orderNumber: order.orderNumber,
-        cartId: cart.id,
+        cartId: cartWithAddress.id,
         totalPrice: {
           centAmount: order.totalPrice.centAmount,
           currencyCode: order.totalPrice.currencyCode,

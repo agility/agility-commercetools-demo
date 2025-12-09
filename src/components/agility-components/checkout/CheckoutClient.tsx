@@ -1,14 +1,12 @@
 "use client"
 
 import { useCart } from "@/lib/hooks/useCart"
-import { motion, AnimatePresence } from "motion/react"
-import Image from "next/image"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, useEffect, useRef } from "react"
-import { ExclamationCircleIcon } from "@heroicons/react/24/outline"
-import { checkoutFlow } from "@commercetools/checkout-browser-sdk"
-import { getImageDimensions } from "@/lib/utils/imageOptimization"
+import { useState, useEffect } from "react"
+import { formatPrice } from "@/lib/utils"
+import { clsx } from "clsx"
+import { CartLineItem } from "@/components/cart/CartLineItem"
+import { Input } from "@/components/ui/input"
 
 interface CheckoutClientProps {
   heading: string
@@ -17,71 +15,147 @@ interface CheckoutClientProps {
   contentID: string
 }
 
+interface ShippingAddress {
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string
+  streetName: string
+  streetNumber?: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+}
+
 export function CheckoutClient({ heading, description, taxRate, contentID }: CheckoutClientProps) {
   const router = useRouter()
   const { cart } = useCart()
-  const [isLoading, setIsLoading] = useState(false)
+  const [cartLoaded, setCartLoaded] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [email, setEmail] = useState("")
-  const [createAccount, setCreateAccount] = useState(false)
-  const [authenticatedCustomerId, setAuthenticatedCustomerId] = useState<string | null>(null)
-  const checkoutInitialized = useRef(false)
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    streetName: "",
+    streetNumber: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "US", // Default to US - only supported country
+  })
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof ShippingAddress, string>>>({})
 
-
-  // Redirect to products if cart is empty
+  // Wait for cart to load from localStorage
   useEffect(() => {
-    if (cart.items.length === 0 && !isLoading) {
+    if (typeof window !== "undefined") {
+      const timer = setTimeout(() => {
+        setCartLoaded(true)
+      }, 100)
+      return () => clearTimeout(timer)
+    } else {
+      setCartLoaded(true)
+    }
+  }, [])
+
+  // Redirect if cart is empty
+  useEffect(() => {
+    if (cartLoaded && cart.items.length === 0) {
       router.push("/products")
     }
-  }, [cart.items.length, router, isLoading])
+  }, [cart.items.length, router, cartLoaded])
 
-  // Calculate totals
-  const subtotal = cart.total
-  const taxEstimate = subtotal * taxRate
-  const total = subtotal + taxEstimate
+  // Check if user is authenticated (has customer ID in session)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const customerId = sessionStorage.getItem("customer_id")
+      // If authenticated, you might want to pre-fill email from customer data
+      // For now, we'll just note that customerId exists
+    }
+  }, [])
 
-  const handleCheckout = async () => {
+  const validateForm = (): boolean => {
+    const errors: Partial<Record<keyof ShippingAddress, string>> = {}
+
+    if (!shippingAddress.firstName.trim()) {
+      errors.firstName = "First name is required"
+    }
+    if (!shippingAddress.lastName.trim()) {
+      errors.lastName = "Last name is required"
+    }
+    if (!shippingAddress.email.trim()) {
+      errors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingAddress.email)) {
+      errors.email = "Please enter a valid email address"
+    }
+    if (!shippingAddress.streetName.trim()) {
+      errors.streetName = "Street address is required"
+    }
+    if (!shippingAddress.city.trim()) {
+      errors.city = "City is required"
+    }
+    if (!shippingAddress.state.trim()) {
+      errors.state = "State is required"
+    }
+    if (!shippingAddress.postalCode.trim()) {
+      errors.postalCode = "Postal code is required"
+    }
+    if (!shippingAddress.country.trim()) {
+      errors.country = "Country is required"
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleInputChange = (field: keyof ShippingAddress, value: string) => {
+    setShippingAddress((prev) => ({ ...prev, [field]: value }))
+    // Clear error for this field when user starts typing
+    if (formErrors[field]) {
+      setFormErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    if (!validateForm()) {
+      return
+    }
+
+    setIsSubmitting(true)
+
     try {
-      setIsLoading(true)
-      setError(null)
+      const customerId =
+        typeof window !== "undefined" ? sessionStorage.getItem("customer_id") : null
 
-      // Prevent multiple initializations
-      if (checkoutInitialized.current) {
-        return
-      }
-
-      const customerId = typeof window !== 'undefined' ? sessionStorage.getItem("customer_id") : undefined
-
-      // Build request body for checkout session creation
-      const requestBody: {
-        items: typeof cart.items
-        customerId?: string
-        email?: string
-        currency?: string
-        country?: string
-      } = {
-        items: cart.items,
-        currency: "USD",
-        country: "US",
-      }
-
-      // If authenticated, use customer ID
-      if (customerId) {
-        requestBody.customerId = customerId
-      }
-
-      // If email provided, include it
-      if (email) {
-        requestBody.email = email
-      }
-
-      // Create commercetools checkout session
-      const response = await fetch("/api/checkout/session/create", {
+      // Create Stripe checkout session
+      const response = await fetch("/api/checkout/stripe-session", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          items: cart.items,
+          customerId: customerId || undefined,
+          email: shippingAddress.email,
+          shippingAddress: {
+            firstName: shippingAddress.firstName,
+            lastName: shippingAddress.lastName,
+            email: shippingAddress.email,
+            phone: shippingAddress.phone,
+            streetName: shippingAddress.streetName,
+            streetNumber: shippingAddress.streetNumber,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            postalCode: shippingAddress.postalCode,
+            country: shippingAddress.country,
+          },
+          currency: "USD",
+        }),
       })
 
       const data = await response.json()
@@ -90,49 +164,28 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
         throw new Error(data.error || data.message || "Failed to create checkout session")
       }
 
-      if (!data.sessionId || !data.region || !data.projectKey) {
+      if (!data.url) {
         throw new Error("Invalid checkout session response")
       }
 
-      // Initialize commercetools Checkout SDK
-      checkoutInitialized.current = true
-
-      checkoutFlow({
-        projectKey: data.projectKey,
-        region: data.region,
-        sessionId: data.sessionId,
-        locale: typeof window !== 'undefined' ? navigator.language.split('-')[0] || 'en' : 'en',
-        logInfo: process.env.NODE_ENV === 'development',
-        logWarn: process.env.NODE_ENV === 'development',
-        logError: true,
-        onInfo: (info) => {
-          console.log('[Checkout Info]', info)
-        },
-        onWarn: (warn) => {
-          console.warn('[Checkout Warning]', warn)
-        },
-        onError: (err) => {
-          console.error('[Checkout Error]', err)
-          setError(err.message || 'Checkout error occurred')
-          setIsLoading(false)
-          checkoutInitialized.current = false
-        },
-      })
+      // Redirect to Stripe Checkout
+      window.location.href = data.url
     } catch (err) {
       console.error("Checkout error:", err)
       setError(err instanceof Error ? err.message : "An error occurred")
-      setIsLoading(false)
-      checkoutInitialized.current = false
+      setIsSubmitting(false)
     }
   }
 
-  // Show loading state while redirecting to products
-  if (cart.items.length === 0) {
+  // Show loading state
+  if (!cartLoaded || cart.items.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center" data-agility-component={contentID}>
         <div className="text-center">
           <div className="mx-auto size-12 animate-spin rounded-full border-b-2 border-t-2 border-gray-900 dark:border-white"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Redirecting to products...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
+            {!cartLoaded ? "Loading cart..." : "Redirecting to products..."}
+          </p>
         </div>
       </div>
     )
@@ -143,232 +196,319 @@ export function CheckoutClient({ heading, description, taxRate, contentID }: Che
       className="min-h-screen bg-gray-50 px-4 py-12 dark:bg-gray-900 sm:px-6 lg:px-8"
       data-agility-component={contentID}
     >
-      <div className="mx-auto max-w-4xl">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="mb-8">
-            <h1
-              className="text-3xl font-bold text-gray-900 dark:text-white"
-              data-agility-field="heading"
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8">
+          <h1
+            className="text-3xl font-bold text-gray-900 dark:text-white"
+            data-agility-field="heading"
+          >
+            {heading}
+          </h1>
+          {description && (
+            <p
+              className="mt-2 text-gray-600 dark:text-gray-400"
+              data-agility-field="description"
             >
-              {heading}
-            </h1>
-            {description && (
-              <p
-                className="mt-2 text-gray-600 dark:text-gray-400"
-                data-agility-field="description"
-              >
-                {description}
-              </p>
-            )}
+              {description}
+            </p>
+          )}
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
+        )}
 
-          {/* Error Message */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
-              >
-                <div className="flex items-start gap-2">
-                  <ExclamationCircleIcon className="size-5 shrink-0 text-red-600 dark:text-red-400" />
-                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className="grid gap-8 lg:grid-cols-3">
-            {/* Cart Items */}
-            <div className="space-y-4 lg:col-span-2">
-              <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-                <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">Order Items</h2>
-
-                <div className="space-y-4">
-                  {cart.items.map((item, index) => (
-                    <motion.div
-                      key={item.variantSKU}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className="flex gap-4 border-b border-gray-200 pb-4 last:border-b-0 last:pb-0 dark:border-gray-700"
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {/* Checkout Form */}
+          <div className="lg:col-span-2">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Contact Information */}
+              <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-800">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Contact Information
+                </h2>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="firstName"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {item.product.featuredImage && (
-                        <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-gray-100 dark:bg-gray-700">
-                          <Image
-                            src={item.product.featuredImage.url}
-                            alt={item.product.featuredImage.label || item.product.title}
-                            width={item.product.featuredImage.width || getImageDimensions('cart').width}
-                            height={item.product.featuredImage.height || getImageDimensions('cart').height}
-                            className="size-full object-cover"
-                            sizes="80px"
-                            quality={85}
-                          />
-                        </div>
+                      First Name *
+                    </label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={shippingAddress.firstName}
+                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      className={clsx(
+                        "mt-1",
+                        formErrors.firstName && "border-red-500 dark:border-red-500"
                       )}
-
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                          {item.product.title}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          {(typeof item.variant.color === 'string' ? item.variant.color : '') ||
-                            (typeof item.variant.size === 'object' && 'fields' in item.variant.size ? (item.variant.size as any).fields?.name : '') ||
-                            "Default"}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Quantity: {item.quantity}</p>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {/* ${(item.variant.price * item.quantity).toFixed(2)} */}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          ${item.variant.price} each
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
+                      required
+                    />
+                    {formErrors.firstName && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors.firstName}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="lastName"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Last Name *
+                    </label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={shippingAddress.lastName}
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      className={clsx(
+                        "mt-1",
+                        formErrors.lastName && "border-red-500 dark:border-red-500"
+                      )}
+                      required
+                    />
+                    {formErrors.lastName && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors.lastName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Email *
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={shippingAddress.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className={clsx(
+                      "mt-1",
+                      formErrors.email && "border-red-500 dark:border-red-500"
+                    )}
+                    required
+                  />
+                  {formErrors.email && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {formErrors.email}
+                    </p>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <label
+                    htmlFor="phone"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Phone (Optional)
+                  </label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={shippingAddress.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    className="mt-1"
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* Order Summary */}
-            <div className="lg:col-span-1">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="sticky top-24 space-y-4"
-              >
-                {/* Customer Email Form */}
-                <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-                  <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">Contact Information</h2>
-
-                  {authenticatedCustomerId && (
-                    <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
-                      <p className="text-sm text-green-800 dark:text-green-300">
-                        ✓ Logged in as {email}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="checkout-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Email Address {!authenticatedCustomerId && <span className="text-xs text-gray-500">(optional)</span>}
-                      </label>
-                      <input
-                        type="email"
-                        id="checkout-email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        disabled={!!authenticatedCustomerId}
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-white dark:focus:ring-white dark:disabled:bg-gray-800"
-                      />
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {authenticatedCustomerId
-                          ? "Your account email"
-                          : email
-                            ? "We'll send your order confirmation here"
-                            : "Skip to checkout as guest - you'll enter email at payment"}
-                      </p>
-                    </div>
-
-                    {!authenticatedCustomerId && email && (
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          id="create-account"
-                          checked={createAccount}
-                          onChange={(e) => setCreateAccount(e.target.checked)}
-                          className="mt-0.5 size-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-white"
-                        />
-                        <label htmlFor="create-account" className="text-sm text-gray-700 dark:text-gray-300">
-                          Create an account to track orders and manage billing
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Order Summary */}
-                <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-                  <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">Order Summary</h2>
-
-                  <div className="mb-6 space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
-                      <span className="font-medium text-gray-900 dark:text-white">${subtotal.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Tax estimate</span>
-                      <span className="font-medium text-gray-900 dark:text-white">${taxEstimate.toFixed(2)}</span>
-                    </div>
-
-                    <div className="border-t border-gray-200 pt-3 dark:border-gray-700">
-                      <div className="flex justify-between">
-                        <span className="text-base font-semibold text-gray-900 dark:text-white">Total</span>
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">${total.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleCheckout}
-                    disabled={isLoading}
-                    className="w-full rounded-lg bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+              {/* Shipping Address */}
+              <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-800">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Shipping Address
+                </h2>
+                <div className="mt-4">
+                  <label
+                    htmlFor="streetName"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg
-                          className="size-5 animate-spin"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : (
-                      "Proceed to Payment"
-                    )}
-                  </button>
-
-                  <Link
-                    href="/products"
-                    className="mt-4 block text-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                  >
-                    Continue Shopping
-                  </Link>
-
-                  <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
-                    <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-                      Secure checkout powered by commercetools
+                    Street Address *
+                  </label>
+                  <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                    <Input
+                      id="streetNumber"
+                      type="text"
+                      placeholder="Number"
+                      value={shippingAddress.streetNumber}
+                      onChange={(e) => handleInputChange("streetNumber", e.target.value)}
+                      className="sm:col-span-1"
+                    />
+                    <Input
+                      id="streetName"
+                      type="text"
+                      placeholder="Street name"
+                      value={shippingAddress.streetName}
+                      onChange={(e) => handleInputChange("streetName", e.target.value)}
+                      className={clsx(
+                        "sm:col-span-3",
+                        formErrors.streetName && "border-red-500 dark:border-red-500"
+                      )}
+                      required
+                    />
+                  </div>
+                  {formErrors.streetName && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {formErrors.streetName}
                     </p>
+                  )}
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor="city"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      City *
+                    </label>
+                    <Input
+                      id="city"
+                      type="text"
+                      value={shippingAddress.city}
+                      onChange={(e) => handleInputChange("city", e.target.value)}
+                      className={clsx(
+                        "mt-1",
+                        formErrors.city && "border-red-500 dark:border-red-500"
+                      )}
+                      required
+                    />
+                    {formErrors.city && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors.city}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="state"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      State *
+                    </label>
+                    <Input
+                      id="state"
+                      type="text"
+                      value={shippingAddress.state}
+                      onChange={(e) => handleInputChange("state", e.target.value)}
+                      className={clsx(
+                        "mt-1",
+                        formErrors.state && "border-red-500 dark:border-red-500"
+                      )}
+                      required
+                    />
+                    {formErrors.state && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors.state}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="postalCode"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Postal Code *
+                    </label>
+                    <Input
+                      id="postalCode"
+                      type="text"
+                      value={shippingAddress.postalCode}
+                      onChange={(e) => handleInputChange("postalCode", e.target.value)}
+                      className={clsx(
+                        "mt-1",
+                        formErrors.postalCode && "border-red-500 dark:border-red-500"
+                      )}
+                      required
+                    />
+                    {formErrors.postalCode && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors.postalCode}
+                      </p>
+                    )}
                   </div>
                 </div>
-              </motion.div>
+                <div className="mt-4">
+                  <label
+                    htmlFor="country"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Country *
+                  </label>
+                  <select
+                    id="country"
+                    value={shippingAddress.country}
+                    onChange={(e) => handleInputChange("country", e.target.value)}
+                    className={clsx(
+                      "mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400",
+                      formErrors.country && "border-red-500 dark:border-red-500"
+                    )}
+                    required
+                    disabled // Only US is supported for now
+                  >
+                    <option value="US">United States</option>
+                    {/* Only US is currently supported - products must be priced and tax rates configured for additional countries */}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Currently shipping to United States only
+                  </p>
+                  {formErrors.country && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {formErrors.country}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-lg bg-gray-900 px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                >
+                  {isSubmitting ? "Processing..." : "Continue to Payment"}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Order Summary */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-4 rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-800">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Order Summary
+              </h2>
+              <div className="mt-4 space-y-4">
+                {cart.items.map((item) => (
+                  <div key={item.variantSKU} className="border-b border-gray-200 pb-4 dark:border-gray-700">
+                    <CartLineItem item={item} showControls={false} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                  <span>Subtotal</span>
+                  <span>{formatPrice(cart.total)}</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold text-gray-900 dark:text-white">
+                  <span>Total</span>
+                  <span>{formatPrice(cart.total)}</span>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Shipping and taxes calculated at checkout
+                </p>
+              </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

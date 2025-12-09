@@ -7,9 +7,10 @@ A modern, full-featured e-commerce demo site built with Next.js 15, Agility CMS,
 ### E-Commerce
 - ✅ **Product Catalog** - Full product management powered by commercetools
 - ✅ **Shopping Cart** - Persistent cart with localStorage
-- ✅ **commercetools Checkout** - Cart and order management via commercetools API
+- ✅ **Custom Checkout** - Stripe payment processing with commercetools cart/order integration
 - ✅ **Product Variants** - Color, size, and custom attributes
 - ✅ **Order Management** - Order creation and tracking via commercetools
+- ✅ **Payment Processing** - Stripe Checkout integration
 
 ### Content Management
 - ✅ **Agility CMS Integration** - Headless CMS with inline editing
@@ -96,7 +97,13 @@ CTP_CLIENT_ID=your-client-id
 CTP_CLIENT_SECRET=your-client-secret
 CTP_AUTH_URL=https://auth.us-east-2.aws.commercetools.com
 CTP_API_URL=https://api.us-east-2.aws.commercetools.com
-CTP_SCOPES=view_products:your-project-key manage_orders:your-project-key ...
+CTP_SCOPES=view_products:your-project-key manage_orders:your-project-key manage_customers:your-project-key manage_payments:your-project-key manage_carts:your-project-key
+
+# Stripe (Required for checkout)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 # AI Search (Optional)
 AZURE_OPENAI_API_KEY=...
@@ -161,11 +168,6 @@ This project includes comprehensive documentation:
 
 - **[QUICK_START.md](./QUICK_START.md)** - Get running in 15 minutes
 - **[AGILITY_SETUP_GUIDE.md](./AGILITY_SETUP_GUIDE.md)** - Complete CMS setup guide
-- **[ECOMMERCE_README.md](./ECOMMERCE_README.md)** - E-commerce implementation details
-- **[COMMERCETOOLS_INTEGRATION.md](./COMMERCETOOLS_INTEGRATION.md)** - commercetools integration guide
-- **[CHECKOUT_FLOW.md](./CHECKOUT_FLOW.md)** - Checkout flow documentation
-- **[CUSTOMER_SESSION_FLOW.md](./CUSTOMER_SESSION_FLOW.md)** - Customer authentication flow
-- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Implementation overview
 - **[ACCOUNT_SETUP.md](./ACCOUNT_SETUP.md)** - Account setup instructions
 
 ### Additional Docs
@@ -174,16 +176,29 @@ This project includes comprehensive documentation:
 - `docs/ENVIRONMENT_VARIABLES.md` - Environment variable reference
 - `docs/VIEW_TRANSITIONS.md` - View transitions guide
 
+### AI Coding Helpers
+
+- **[CLAUDE.md](./CLAUDE.md)** - Project context for Claude AI
+- **[CURSOR.md](./CURSOR.md)** - Cursor AI development guide
+- **[.cursorrules](./.cursorrules)** - Cursor-specific rules and patterns
+
 ## 🎯 Key Features Explained
 
 ### E-Commerce Flow
 
 1. **Products** → Managed in commercetools with variants
 2. **Cart** → React Context with localStorage persistence
-3. **Checkout** → commercetools Cart and Order APIs
-4. **Orders** → Order creation and management via commercetools
+3. **Checkout** → Custom checkout form → Stripe Checkout Session → commercetools cart
+4. **Payment** → Stripe processes payment → Webhook creates commercetools order
+5. **Orders** → Order creation and management via commercetools
 
-See [COMMERCETOOLS_INTEGRATION.md](./COMMERCETOOLS_INTEGRATION.md) and [ECOMMERCE_README.md](./ECOMMERCE_README.md) for details.
+**Checkout Process:**
+- User fills shipping address form
+- Creates commercetools cart with line items
+- Creates Stripe Checkout Session
+- User completes payment on Stripe
+- Webhook creates order in commercetools with payment reference
+- User redirected to success page
 
 ### CMS Integration
 
@@ -248,6 +263,7 @@ All environment variables are validated via `src/lib/env.ts`. Use `env.get('VAR_
 
 **Optional Variables:**
 - commercetools credentials (for e-commerce)
+- Stripe keys (for checkout - required if using e-commerce)
 - AI provider keys (for AI search)
 - Algolia keys (for search)
 
@@ -267,9 +283,10 @@ The middleware (`src/middleware.ts`) handles:
 1. ✅ Run `npm run prebuild` to rebuild redirect cache
 2. ✅ Set all environment variables in your hosting platform
 3. ✅ Configure commercetools API credentials
-4. ✅ Set up PostHog project (if using analytics)
-5. ✅ Configure Agility CMS preview URLs
-6. ✅ Set up payment provider integration (if using commercetools payments)
+4. ✅ Configure Stripe API keys and webhook endpoint
+5. ✅ Set up PostHog project (if using analytics)
+6. ✅ Configure Agility CMS preview URLs
+7. ✅ Set up Stripe webhook: `https://yourdomain.com/api/webhooks/stripe` with events: `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
 
 ### Recommended Platforms
 
