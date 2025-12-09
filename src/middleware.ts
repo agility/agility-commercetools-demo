@@ -120,11 +120,21 @@ export async function middleware(request: NextRequest) {
 		 * HANDLE SEARCH PARAMS *
 		 ************************/
 
-		//grab the search params and add them to the path so we can pass them on when rewriting
-		//this will help use keep static routing working for better performance
-		//otherwise, nextjs will treat the page as a dynamic route and we lose the performance benefits of static routing
-		//eg: /blog/?q=something -> /blog/~~~q=something~~~
-		//otherwise, Next.js will treat the page as a dynamic route and we lose the performance benefits of static routing
+		/**
+		 * ENCODE SEARCH PARAMS INTO PATH
+		 *
+		 * Next.js App Router treats routes with query params as dynamic, losing static routing benefits.
+		 * To preserve static routing while still supporting query params (e.g., pagination, filters),
+		 * we encode them into the path using ~~~ delimiters.
+		 *
+		 * Example transformations:
+		 * - /products?page=2&category=all -> /products/~~~page=2&category=all~~~
+		 * - /blog?q=search -> /blog/~~~q=search~~~
+		 *
+		 * The search params are then decoded in getAgilityPage.ts and made available via globalData.searchParams
+		 *
+		 * See: src/lib/cms/getAgilityPage.ts (lines 31-49) for decoding logic
+		 */
 		let searchParams = request.nextUrl.searchParams.toString()
 		let hasSearchParams = searchParams && searchParams.length > 0
 		if (!hasSearchParams) {
@@ -133,7 +143,7 @@ export async function middleware(request: NextRequest) {
 
 		if (searchParams && searchParams.length > 0) {
 			const searchParamPortion = `~~~${encodeURIComponent(searchParams)}~~~`
-			//if we have search params, we need to include them in the path like this /path/->/path/~~~searchParams~~~
+			// Append encoded search params to pathname: /path -> /path/~~~searchParams~~~
 			pathname = pathname.endsWith("/") ? `${pathname}${searchParamPortion}` : `${pathname}/${searchParamPortion}`
 		}
 

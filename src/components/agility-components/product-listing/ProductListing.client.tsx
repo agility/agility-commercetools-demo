@@ -4,6 +4,7 @@ import { Container } from "../../container"
 import { Heading } from "../../text"
 import { clsx } from "clsx"
 import { useState, useMemo } from "react"
+import { useRouter, usePathname } from 'next/navigation'
 import {
 	AdjustmentsHorizontalIcon,
 	Squares2X2Icon,
@@ -21,9 +22,15 @@ interface ProductListingClientProps {
 	showSortOptions: boolean
 	ctaLabel: string
 	products: (IProduct & { commercetoolsId?: string })[]
+	totalCount: number
+	page: number
+	category: string
+	sort: string
 	contentID: number
 	languageCode: string
 }
+
+const PRODUCTS_PER_PAGE = 20
 
 export const ProductListingClient = ({
 	heading,
@@ -34,14 +41,38 @@ export const ProductListingClient = ({
 	showSortOptions,
 	ctaLabel,
 	products,
+	totalCount,
+	page,
+	category: initialCategory,
+	sort: initialSort,
 	contentID,
 	languageCode
 }: ProductListingClientProps) => {
-	const [displayStyle, setDisplayStyle] = useState<'grid' | 'list'>(initialDisplayStyle as 'grid' | 'list')
-	const [selectedCategory, setSelectedCategory] = useState<string>('all')
-	const [sortOption, setSortOption] = useState<string>('default')
+	const router = useRouter()
+	const pathname = usePathname()
 
-	// Extract unique categories from products
+	const [displayStyle, setDisplayStyle] = useState<'grid' | 'list'>(initialDisplayStyle as 'grid' | 'list')
+	const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory)
+	const [sortOption, setSortOption] = useState<string>(initialSort)
+
+	// Update URL when filters or sort change
+	const updateFilters = (category: string, sort: string) => {
+		const params = new URLSearchParams()
+
+		if (category && category !== 'all') {
+			params.set('category', category)
+		}
+		if (sort && sort !== 'default') {
+			params.set('sort', sort)
+		}
+		// Reset to page 1 when filters change
+		// Page param is omitted for page 1
+
+		const newUrl = `${pathname}${params.toString() ? `?${params.toString()}` : ''}`
+		router.push(newUrl)
+	}
+
+	// Extract unique categories from products (for future use)
 	const categories = useMemo(() => {
 		const categorySet = new Set<string>()
 		products.forEach((product) => {
@@ -50,42 +81,6 @@ export const ProductListingClient = ({
 		})
 		return Array.from(categorySet).sort()
 	}, [products])
-
-	// Filter and sort products
-	const filteredAndSortedProducts = useMemo(() => {
-		let result = [...products]
-
-		// Filter by category (if categories are implemented)
-		if (selectedCategory !== 'all') {
-			// Category filtering would need to be implemented based on commercetools category structure
-		}
-
-		// Sort products
-		switch (sortOption) {
-			case 'price-low':
-				result.sort((a, b) => {
-					const priceA = parseFloat(a.basePrice || '0')
-					const priceB = parseFloat(b.basePrice || '0')
-					return priceA - priceB
-				})
-				break
-			case 'price-high':
-				result.sort((a, b) => {
-					const priceA = parseFloat(a.basePrice || '0')
-					const priceB = parseFloat(b.basePrice || '0')
-					return priceB - priceA
-				})
-				break
-			case 'name-az':
-				result.sort((a, b) => a.title.localeCompare(b.title))
-				break
-			default:
-				// Keep original order
-				break
-		}
-
-		return result
-	}, [products, selectedCategory, sortOption])
 
 	// Grid column classes based on itemsPerRow
 	const gridCols = {
@@ -116,7 +111,10 @@ export const ProductListingClient = ({
 						<div className="flex items-center gap-2 flex-wrap" data-agility-field="showFilters">
 							<AdjustmentsHorizontalIcon className="w-5 h-5 text-gray-500" />
 							<button
-								onClick={() => setSelectedCategory('all')}
+								onClick={() => {
+									setSelectedCategory('all')
+									updateFilters('all', sortOption)
+								}}
 								className={clsx(
 									"px-4 py-2 rounded-full text-sm font-medium transition-colors",
 									selectedCategory === 'all'
@@ -129,7 +127,10 @@ export const ProductListingClient = ({
 							{categories.map((category) => (
 								<button
 									key={category}
-									onClick={() => setSelectedCategory(category)}
+									onClick={() => {
+										setSelectedCategory(category)
+										updateFilters(category, sortOption)
+									}}
 									className={clsx(
 										"px-4 py-2 rounded-full text-sm font-medium transition-colors",
 										selectedCategory === category
@@ -150,7 +151,10 @@ export const ProductListingClient = ({
 							<div data-agility-field="showSortOptions">
 								<select
 									value={sortOption}
-									onChange={(e) => setSortOption(e.target.value)}
+									onChange={(e) => {
+										setSortOption(e.target.value)
+										updateFilters(selectedCategory, e.target.value)
+									}}
 									className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
 								>
 									<option value="default">Default</option>
@@ -201,9 +205,9 @@ export const ProductListingClient = ({
 						: "grid-cols-1"
 				)}
 			>
-				{filteredAndSortedProducts.map((product, index) => (
+				{products.map((product, index) => (
 					<ProductCard
-						key={product.commercetoolsId || product.slug}
+						key={product.commercetoolsId || product.slug || `product-${index}`}
 						product={product}
 						displayStyle={displayStyle}
 						ctaLabel={ctaLabel}
@@ -214,7 +218,7 @@ export const ProductListingClient = ({
 			</div>
 
 			{/* Empty State */}
-			{filteredAndSortedProducts.length === 0 && (
+			{products.length === 0 && (
 				<div className="text-center py-16">
 					<p className="text-lg text-gray-500 dark:text-gray-400">
 						No products found matching your criteria.

@@ -26,6 +26,44 @@ export const getAgilityPage = async ({ params }: PageProps) => {
 	// Pattern: slug array could be ["products", "some-product-slug"] or ["en-us", "products", "some-product-slug"]
 	// depending on whether locale is in the path
 	let productSlug: string | null = null
+
+
+	/**
+	 * DECODE SEARCH PARAMS FROM PATH
+	 *
+	 * Next.js App Router doesn't pass searchParams to server components the same way as Pages Router.
+	 * To preserve static routing benefits, our middleware encodes query params into the path:
+	 *
+	 * Example: /products?page=2&category=all -> /products/~~~page=2&category=all~~~
+	 *
+	 * This function decodes them back into a searchParams object:
+	 * 1. Check if last slug segment is wrapped in ~~~ delimiters
+	 * 2. Extract and decode the search params string
+	 * 3. Parse key-value pairs
+	 * 4. Remove the encoded segment from the slug array
+	 *
+	 * See: src/middleware.ts (lines 123-138) for encoding logic
+	 */
+	let lastSlug = awaitedParams.slug[awaitedParams.slug.length - 1]
+	let searchParams: { [key: string]: string } = {}
+	if (lastSlug && lastSlug.startsWith("~~~") && lastSlug.endsWith("~~~")) {
+		// We have search params encoded here - decode them
+		lastSlug = lastSlug.replace(/~~~+/g, "")
+		const decoded = decodeURIComponent(lastSlug)
+		const parts = decoded.split("&").map(part => part.trim())
+
+		parts.forEach(part => {
+			const kvp = part.split("=")
+			if (kvp.length === 2) {
+				searchParams[kvp[0]] = kvp[1]
+			}
+		})
+
+		// Remove the encoded search params segment from the slug
+		awaitedParams.slug = awaitedParams.slug.slice(0, awaitedParams.slug.length - 1)
+		if (awaitedParams.slug.length === 0) awaitedParams.slug = [""]
+	}
+
 	const slugArray = awaitedParams.slug
 
 	// Find the "products" index in the slug array
@@ -53,25 +91,7 @@ export const getAgilityPage = async ({ params }: PageProps) => {
 		}
 	}
 
-	//check the last element of the slug to see if it has search params encoded (from middleware)
-	let lastSlug = awaitedParams.slug[awaitedParams.slug.length - 1]
-	let searchParams: { [key: string]: string } = {}
-	if (lastSlug && lastSlug.startsWith("~~~") && lastSlug.endsWith("~~~")) {
-		//we have search params encoded here
-		lastSlug = lastSlug.replace(/~~~+/g, "")
-		const decoded = decodeURIComponent(lastSlug)
-		const parts = decoded.split("&").map(part => part.trim())
 
-		parts.forEach(part => {
-			const kvp = part.split("=")
-			if (kvp.length === 2) {
-				searchParams[kvp[0]] = kvp[1]
-			}
-		})
-
-		awaitedParams.slug = awaitedParams.slug.slice(0, awaitedParams.slug.length - 1)
-		if (awaitedParams.slug.length === 0) awaitedParams.slug = [""]
-	}
 
 	//get the page
 	const page = await getAgilityPageProps({
@@ -80,6 +100,8 @@ export const getAgilityPage = async ({ params }: PageProps) => {
 		}
 	})
 
+	// Make search params available to all components via globalData
+	// Components can access them via: globalData?.searchParams
 	page.globalData = page.globalData || {};
 	page.globalData["searchParams"] = searchParams;
 
