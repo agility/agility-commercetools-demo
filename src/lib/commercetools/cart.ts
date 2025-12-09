@@ -15,14 +15,8 @@ export async function createCart(
   const cartDraft: CartDraft = {
     currency,
     country: country || 'US',
-  }
-
-  if (customerId) {
-    cartDraft.customerId = customerId
-  }
-
-  if (customerEmail) {
-    cartDraft.customerEmail = customerEmail
+    ...(customerId && { customerId }),
+    ...(customerEmail && { customerEmail }),
   }
 
   try {

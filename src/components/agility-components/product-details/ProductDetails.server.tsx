@@ -1,5 +1,5 @@
 import { getContentItem } from '@/lib/cms/getContentItem'
-import type { UnloadedModuleProps, ContentItem } from '@agility/nextjs'
+import type { UnloadedModuleProps, ContentItem, ImageField } from '@agility/nextjs'
 import { ProductDetailsClient } from './ProductDetailsClient'
 import type { IProductDetails } from '@/lib/types/IProductDetails'
 import type { IProduct } from '@/lib/types/IProduct'
@@ -9,7 +9,7 @@ import { fetchCommercetoolsProducts } from '@/lib/commercetools/products'
 interface IRelatedProduct {
 	title: string
 	basePrice: string
-	featuredImage?: { url: string; label?: string; width?: number; height?: number }
+	featuredImage?: ImageField
 	slug: string
 }
 
@@ -42,6 +42,14 @@ export const ProductDetails = async ({ module, languageCode, globalData }: Unloa
 			...product,
 			commercetoolsId: product.commercetoolsId,
 		} as IProduct & { commercetoolsId?: string },
+		properties: {
+			definitionName: 'Product',
+			referenceName: product.slug,
+			state: 2, // Published
+			versionID: 1,
+			modified: new Date(),
+			itemOrder: 0,
+		},
 	}
 
 	// Transform variants from commercetools format
@@ -49,6 +57,14 @@ export const ProductDetails = async ({ module, languageCode, globalData }: Unloa
 		? product.variants.map((variant, index) => ({
 			contentID: index + 2000,
 			fields: variant,
+			properties: {
+				definitionName: 'Variant',
+				referenceName: variant.variantSKU || `variant-${index}`,
+				state: 2, // Published
+				versionID: 1,
+				modified: new Date(),
+				itemOrder: index,
+			},
 		}))
 		: []
 
@@ -69,8 +85,23 @@ export const ProductDetails = async ({ module, languageCode, globalData }: Unloa
 					fields: {
 						title: p.title,
 						basePrice: p.basePrice,
-						featuredImage: p.featuredImage,
+						featuredImage: p.featuredImage ? {
+							url: p.featuredImage.url,
+							label: p.featuredImage.label,
+							width: p.featuredImage.width,
+							height: p.featuredImage.height,
+							target: '_self',
+							filesize: 0,
+						} as ImageField : undefined,
 						slug: p.slug,
+					},
+					properties: {
+						definitionName: 'Product',
+						referenceName: p.slug,
+						state: 2, // Published
+						versionID: 1,
+						modified: new Date(),
+						itemOrder: index,
 					},
 				}))
 		} catch (error) {

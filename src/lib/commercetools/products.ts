@@ -10,9 +10,17 @@ import type { Product, ProductProjection } from '@commercetools/platform-sdk'
 export function transformCommercetoolsProduct(
   ctProduct: ProductProjection | Product
 ): IProduct & { commercetoolsId?: string } {
+  // Type guard to check if it's a Product (has masterData) vs ProductProjection (has masterVariant directly)
+  const isProduct = 'masterData' in ctProduct
+
   // Get the master variant and all variants
-  const masterVariant = ctProduct.masterVariant
-  const variants = ctProduct.variants || []
+  // ProductProjection has masterVariant, Product has masterData.current.masterVariant
+  const masterVariant = isProduct
+    ? (ctProduct as Product).masterData?.current?.masterVariant
+    : (ctProduct as ProductProjection).masterVariant
+  const variants = isProduct
+    ? (ctProduct as Product).masterData?.current?.variants || []
+    : (ctProduct as ProductProjection).variants || []
 
   // Get localized values (defaulting to en if available, or first available)
   const getName = (localizedString?: { [key: string]: string }) => {
@@ -26,10 +34,21 @@ export function transformCommercetoolsProduct(
   }
 
   // Get slug from URL slug attribute or generate from name
-  const slugAttribute = ctProduct.slug
+  // ProductProjection has slug directly, Product has it in masterData.current
+  const slugAttribute = isProduct
+    ? (ctProduct as Product).masterData?.current?.slug
+    : (ctProduct as ProductProjection).slug
   const slug = typeof slugAttribute === 'string'
     ? slugAttribute
     : getName(slugAttribute as any) || ctProduct.id || ''
+
+  // Get name and description - handle both Product and ProductProjection
+  const productName = isProduct
+    ? (ctProduct as Product).masterData?.current?.name
+    : (ctProduct as ProductProjection).name
+  const productDescription = isProduct
+    ? (ctProduct as Product).masterData?.current?.description
+    : (ctProduct as ProductProjection).description
 
   // Get base price from master variant
   const basePrice = masterVariant?.prices?.[0]?.value?.centAmount
@@ -95,10 +114,10 @@ export function transformCommercetoolsProduct(
     })
 
   return {
-    title: getName(ctProduct.name),
+    title: getName(productName),
     sku: masterVariant?.sku || ctProduct.id || '',
     slug: slug.toLowerCase().replace(/\s+/g, '-'),
-    description: getDescription(ctProduct.description),
+    description: getDescription(productDescription),
     basePrice,
     featuredImage,
     variants: transformedVariants,

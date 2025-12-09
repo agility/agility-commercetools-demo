@@ -2,9 +2,6 @@ import { tool } from 'ai'
 import { algoliasearch } from 'algoliasearch'
 import { z } from 'zod'
 
-// Initialize Algolia client
-const algolia = algoliasearch(process.env.ALGOLIA_APP_ID!, process.env.ALGOLIA_SEARCH_API_KEY!)
-
 /**
  * Create the search tool that can be shared between AI search and AI agent endpoints
  */
@@ -16,6 +13,11 @@ export const createSearchTool = () => tool({
   }),
   execute: async ({ query, limit = 10 }) => {
     try {
+      // Initialize Algolia client inside function to avoid build-time errors
+      if (!process.env.ALGOLIA_APP_ID || !process.env.ALGOLIA_SEARCH_API_KEY) {
+        throw new Error('Algolia configuration missing')
+      }
+      const algolia = algoliasearch(process.env.ALGOLIA_APP_ID, process.env.ALGOLIA_SEARCH_API_KEY)
 
       console.log('***********')
       console.log('Algolia SEARCH QUERY: ', query)

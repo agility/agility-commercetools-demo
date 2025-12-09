@@ -55,18 +55,18 @@ export function getResponsiveSources(context: ImageDisplayContext): Array<{
 			return [
 				{ media: "(max-width: 639px)", width: 400 },
 				{ media: "(max-width: 1023px)", width: 600 },
-				{ width: 800 },
+				{ media: "", width: 800 },
 			]
 		case 'featured-card':
 			return [
 				{ media: "(max-width: 639px)", width: 400 },
-				{ width: 600 },
+				{ media: "", width: 600 },
 			]
 		case 'detail-main':
 			return [
 				{ media: "(max-width: 639px)", width: 600 },
 				{ media: "(max-width: 1023px)", width: 800 },
-				{ width: 1200 },
+				{ media: "", width: 1200 },
 			]
 		case 'post-card':
 			return [
@@ -77,7 +77,7 @@ export function getResponsiveSources(context: ImageDisplayContext): Array<{
 		case 'post-overlay':
 			return [
 				{ media: "(max-width: 639px)", width: 200 },
-				{ width: 400 },
+				{ media: "", width: 400 },
 			]
 		default:
 			return []

@@ -134,15 +134,17 @@ export async function POST(request: NextRequest) {
           currency: currency.toLowerCase(),
           product_data: {
             name: item.product.title,
-            description: item.variant?.name || item.product.description || undefined,
+            description: item.variant?.variantName || item.product.description || undefined,
             images: item.variant?.image?.url
               ? [item.variant.image.url]
-              : item.product.featuredImage?.url
-                ? [item.product.featuredImage.url]
-                : undefined,
+              : item.variant?.variantImage?.url
+                ? [item.variant.variantImage.url]
+                : item.product.featuredImage?.url
+                  ? [item.product.featuredImage.url]
+                  : undefined,
           },
           unit_amount: Math.round(
-            (item.variant?.price || item.product.basePrice || 0) * 100
+            (item.variant?.price || parseFloat(item.product.basePrice) || 0) * 100
           ),
         },
         quantity: item.quantity,
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
       shipping_address_collection: body.shippingAddress
         ? undefined
         : {
-          allowed_countries: allowedCountries,
+          allowed_countries: allowedCountries as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
         },
     })
 

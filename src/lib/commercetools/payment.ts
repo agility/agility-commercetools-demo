@@ -24,18 +24,13 @@ export async function createPayment(
       method: paymentMethod,
       paymentInterface,
     } as PaymentMethodInfo,
-  }
-
-  if (customerId) {
-    paymentDraft.customer = {
-      typeId: 'customer',
-      id: customerId,
-    }
-  }
-
-  // Add external ID if provided (for linking to Stripe payment)
-  if (externalId) {
-    paymentDraft.interfaceId = externalId
+    ...(customerId && {
+      customer: {
+        typeId: 'customer' as const,
+        id: customerId,
+      },
+    }),
+    ...(externalId && { interfaceId: externalId }),
   }
 
   try {
@@ -77,10 +72,7 @@ export async function addTransactionToPayment(
       currencyCode: transaction.currency,
     },
     state: transaction.state,
-  }
-
-  if (transaction.interactionId) {
-    transactionDraft.interactionId = transaction.interactionId
+    ...(transaction.interactionId && { interactionId: transaction.interactionId }),
   }
 
   try {

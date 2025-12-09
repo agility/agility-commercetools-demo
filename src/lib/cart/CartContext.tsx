@@ -78,7 +78,7 @@ export function CartProvider({ children }: CartProviderProps) {
       } else {
         // Add new item to cart
         const newItem: ICartItem = {
-          productId: parseInt(product.sku) || 0,
+          productId: product.commercetoolsId || product.sku,
           variantSKU,
           product,
           variant,

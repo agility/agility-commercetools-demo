@@ -16,12 +16,7 @@ export async function createCustomer(
     email,
     firstName,
     lastName,
-  }
-
-  // If password is provided, include it (for password-based auth)
-  // Otherwise, customer can use passwordless auth (magic links, etc.)
-  if (password) {
-    customerDraft.password = password
+    ...(password && { password }),
   }
 
   try {

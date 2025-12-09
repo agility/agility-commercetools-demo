@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const cartWithAddress = await setShippingAddress(
       updatedCart.id,
       updatedCart.version,
-      country
+      { country }
     )
 
     // Step 3: Get auth token for checkout session API
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         cart: {
           cartRef: {
-            id: finalCart.id,
+            id: cartWithAddress.id,
           },
         },
         metadata: {
